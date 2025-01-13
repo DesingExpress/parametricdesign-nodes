@@ -1,0 +1,48 @@
+{
+  "name": "@user/parametricdesign-nodes",
+  "version": "0.1.0",
+  "private": false,
+  "description": "",
+  "license": "MIT",
+  "files": [
+    "build"
+  ],
+  "dependencies": {
+    "@design-express/node-scripts": "1.2.7"
+  },
+  "scripts": {
+    "start": "node-scripts start",
+    "build": "node-scripts build",
+    "pack": "node-scripts pack",
+    "publish": "node-scripts publish",
+    "docs": "node-scripts docs",
+    "setuser": "node-scripts setUser"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "pre_release": false,
+  "readme": "README.md",
+  "sandbox": false,
+  "devDependencies": {
+    "@design-express/fabrica": "^1.0.1",
+    "@mui/icons-material": "^5.16.14",
+    "@mui/material": "^5.16.14",
+    "@types/react": "^18.3.18"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}
