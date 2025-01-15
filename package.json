@@ -8,7 +8,8 @@
     "build"
   ],
   "dependencies": {
-    "@design-express/node-scripts": "1.2.7"
+    "@design-express/node-scripts": "1.2.7",
+    "@nexivil/package-modules": "^1.1.39"
   },
   "scripts": {
     "start": "node-scripts start",
