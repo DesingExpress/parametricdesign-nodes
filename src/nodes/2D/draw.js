@@ -6,6 +6,11 @@ import {
 } from "@nexivil/package-modules";
 import { userlayers } from "./layer";
 
+/**
+ * 사용자가 정의한 포인트데이터를 입력받아 도면을 생성하는 함수
+ * @param {*} pointData genPointfn() 함수를 이용하여 생성된 데이터
+ * @returns Array<draw> 
+ */
 export function genDrawfn(pointData) {
   let draw = [];
 

@@ -2,6 +2,7 @@ import { Point } from "@nexivil/package-modules";
 
 /**
  * 파라메트릭 디자인 설명을 위한 주요 절점 요소를 생성하기 위한 기본 함수
+ * 사용자가 정의한 PointData를 생성하고 이후 도면, 모델 생성에 활용하기 위함
  * @returns object { top, btm, input }
  */
 export function genPointfn() {
