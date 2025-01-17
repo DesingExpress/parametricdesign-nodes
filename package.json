@@ -1,5 +1,5 @@
 {
-  "name": "@user/parametricdesign-nodes",
+  "name": "@NEXIVIL/parametricdesign",
   "version": "0.1.0",
   "private": false,
   "description": "",
@@ -9,7 +9,7 @@
   ],
   "dependencies": {
     "@design-express/node-scripts": "1.2.7",
-    "@nexivil/package-modules": "^1.1.39"
+    "@nexivil/package-modules": "^1.2.1"
   },
   "scripts": {
     "start": "node-scripts start",

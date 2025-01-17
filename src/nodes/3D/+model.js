@@ -9,7 +9,7 @@ import { userMaterials } from "./material";
 import { Pure } from "@design-express/fabrica";
 
 export class genModel extends Pure {
-  static path = "UserDefined";
+  static path = "Parametric/3D";
   static title = "genModel";
   static description = "generate model array";
 
@@ -26,7 +26,9 @@ export class genModel extends Pure {
     const pointData = this.getInputData(1);
     const { top, btm, input } = pointData;
     //로컬좌표계 정의
-    let ref = new RefPoint(new Point(1000, 0), new Point(0, 1), Math.PI / 2);
+    // let ref = new RefPoint(new Point(1000, 0), new Point(0, 1), Math.PI / 2);
+    let ref = new RefPoint(new Point(1000, 0), new Point(0, 1), 0);
+    console.log(ref);
     //모델 객체 생성
     model.push(
       new Loft([btm, top], true, "red", {

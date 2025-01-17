@@ -3,7 +3,7 @@ import { Point } from "@nexivil/package-modules";
 
 export class genPoint extends Pure {
   //editor에서 path/title로 표시됨
-  static path = "UserDefined";
+  static path = "Prametric/basic";
   static title = "genPoint";
   static description =
     "Node for generating key node elements for parametric design descriptions";
