@@ -1,6 +1,9 @@
 import * as THREE from "three";
 
 const TextureMatCap = new THREE.TextureLoader().load("/lightMatCap.png");
+/**
+ * 사용자 정의 3차원 모델 재료 객체
+ */
 export const userMaterials = {
   red: new THREE.MeshMatcapMaterial({
     name: "red",

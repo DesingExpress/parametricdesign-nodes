@@ -1,5 +1,8 @@
 import { Layer } from "@nexivil/package-modules";
 
+/**
+ * 사용자 정의 레이어
+ */
 export const userlayers = {
     "CS-CNTL": new Layer("CS-CNTL", 1, "Continuous"), //red
     "CS-CNTL-MIS1": new Layer("CS-CNTL-MIS1", 1, "CENTR01"), //red
