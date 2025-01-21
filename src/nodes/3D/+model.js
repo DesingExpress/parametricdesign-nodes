@@ -26,9 +26,7 @@ export class genModel extends Pure {
     const pointData = this.getInputData(1);
     const { top, btm, input } = pointData;
     //로컬좌표계 정의
-    // let ref = new RefPoint(new Point(1000, 0), new Point(0, 1), Math.PI / 2);
-    let ref = new RefPoint(new Point(1000, 0), new Point(0, 1), 0);
-    console.log(ref);
+    let ref = new RefPoint(new Point(1000, 0), new Point(0, 1), Math.PI / 2);
     //모델 객체 생성
     model.push(
       new Loft([btm, top], true, "red", {
