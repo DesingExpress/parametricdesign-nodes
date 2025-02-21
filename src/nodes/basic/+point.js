@@ -1,18 +1,15 @@
 import { Pure } from "@design-express/fabrica";
 import { Point } from "@nexivil/package-modules";
-
 export class genPoint extends Pure {
   //editor에서 path/title로 표시됨
   static path = "UserDefined";
   static title = "genPoint";
   static description =
     "Node for generating key node elements for parametric design descriptions";
-
   constructor() {
     super();
     this.addOutput("pointData", "parametric-design::pointData");
   }
-
   onExecute() {
     let input = { a: 100, b: 100, c: 100, d: 300, e: 100, f: 200 };
     //절점 생성
