@@ -9,7 +9,7 @@ import { userMaterials } from "./material";
 import { Pure } from "@design-express/fabrica";
 
 export class genModel extends Pure {
-  static path = "UserDefined";
+  static path = "Parametric/3D";
   static title = "genModel";
   static description = "generate model array";
 

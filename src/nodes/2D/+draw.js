@@ -9,7 +9,7 @@ import { userlayers } from "./layer";
 import { Pure } from "@design-express/fabrica";
 
 export class genDraw extends Pure {
-  static path = "UserDefined";
+  static path = "Parametric/2D";
   static title = "genDraw";
   static description =
     "Node to create an array of drawing objects from point data.";
@@ -32,6 +32,7 @@ export class genDraw extends Pure {
     const style = new DimStyle("dimstyle1", scale, 3, { DIMADEC: 1 });
     //도면 객체 생성
     const draw = [];
+    console.log(top)
     draw.push(
       new Line(top, "CS-CONC", true),
       ...continuedDim(
