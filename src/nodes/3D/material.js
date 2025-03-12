@@ -27,4 +27,26 @@ export const userMaterials = {
             transparent : true
         },
     ),
+    green : new THREE.MeshMatcapMaterial(
+        {
+            name : "green",
+            mapCap : TextureMatCap,
+            color: new THREE.Color(0, 1, 0),
+            side : THREE.DoubleSide,
+            flatShading : true,
+            opacity : 1,
+            transparent : true
+        },
+    ),
+    yellow : new THREE.MeshMatcapMaterial(
+        {
+            name : "yellow",
+            mapCap : TextureMatCap,
+            color: new THREE.Color(1, 1, 0),
+            side : THREE.DoubleSide,
+            flatShading : true,
+            opacity : 1,
+            transparent : true
+        },
+    ),
 }
