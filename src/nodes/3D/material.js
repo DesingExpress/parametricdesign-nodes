@@ -5,48 +5,58 @@ const TextureMatCap = new THREE.TextureLoader().load("/lightMatCap.png");
  * 사용자 정의 3차원 모델 재료 객체
  */
 export const userMaterials = {
-    red : new THREE.MeshMatcapMaterial(
-        {
-            name : "red",
-            mapCap : TextureMatCap,
-            color: new THREE.Color(1, 0, 0),
-            side : THREE.DoubleSide,
-            flatShading : true,
-            opacity : 1,
-            transparent : false
-        },
-    ),
-    blue : new THREE.MeshMatcapMaterial(
-        {
-            name : "blue",
-            mapCap : TextureMatCap,
-            color: new THREE.Color(0, 0, 1),
-            side : THREE.DoubleSide,
-            flatShading : true,
-            opacity : 0.5,
-            transparent : true
-        },
-    ),
-    green : new THREE.MeshMatcapMaterial(
-        {
-            name : "green",
-            mapCap : TextureMatCap,
-            color: new THREE.Color(0, 1, 0),
-            side : THREE.DoubleSide,
-            flatShading : true,
-            opacity : 1,
-            transparent : true
-        },
-    ),
-    yellow : new THREE.MeshMatcapMaterial(
-        {
-            name : "yellow",
-            mapCap : TextureMatCap,
-            color: new THREE.Color(1, 1, 0),
-            side : THREE.DoubleSide,
-            flatShading : true,
-            opacity : 1,
-            transparent : true
-        },
-    ),
-}
+  red: new THREE.MeshMatcapMaterial({
+    name: "red",
+    mapCap: TextureMatCap,
+    color: new THREE.Color(1, 0, 0),
+    side: THREE.DoubleSide,
+    flatShading: true,
+    opacity: 1,
+    transparent: false,
+  }),
+  blue: new THREE.MeshMatcapMaterial({
+    name: "blue",
+    mapCap: TextureMatCap,
+    color: new THREE.Color(0, 0, 1),
+    side: THREE.DoubleSide,
+    flatShading: true,
+    opacity: 1,
+    transparent: true,
+  }),
+  green: new THREE.MeshMatcapMaterial({
+    name: "green",
+    mapCap: TextureMatCap,
+    color: new THREE.Color(0, 1, 0),
+    side: THREE.DoubleSide,
+    flatShading: true,
+    opacity: 1,
+    transparent: true,
+  }),
+  yellow: new THREE.MeshMatcapMaterial({
+    name: "yellow",
+    mapCap: TextureMatCap,
+    color: new THREE.Color(1, 1, 0),
+    side: THREE.DoubleSide,
+    flatShading: true,
+    opacity: 1,
+    transparent: true,
+  }),
+  cyan: new THREE.MeshMatcapMaterial({
+    name: "cyan",
+    mapCap: TextureMatCap,
+    color: new THREE.Color(0, 1, 1),
+    side: THREE.DoubleSide,
+    flatShading: true,
+    opacity: 1,
+    transparent: true,
+  }),
+  magenta: new THREE.MeshMatcapMaterial({
+    name: "magenta",
+    mapCap: TextureMatCap,
+    color: new THREE.Color(1, 0, 1),
+    side: THREE.DoubleSide,
+    flatShading: true,
+    opacity: 1,
+    transparent: true,
+  }),
+};
