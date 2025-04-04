@@ -24,11 +24,9 @@ export class genModel extends Pure {
   }
   onExecute() {
     const pointData = this.getInputData(1);
-    
-    let model = pipeLineModel(pointData);
-    //threejs-mesh로 변환
-    const output = getMeshes3D(model, null, userMaterials);
+    let pipe = pipeLineModel(pointData);
+    const output = getMeshes3D(pipe.model, null, userMaterials);
     //출력객체 정의
-    this.setOutputData(1, output);
+    this.setOutputData(1, [...output, pipe.group]);
   }
 }

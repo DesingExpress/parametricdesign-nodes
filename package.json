@@ -9,7 +9,8 @@
   ],
   "dependencies": {
     "@design-express/node-scripts": "1.2.7",
-    "@nexivil/package-modules": "^1.1.39"
+    "@nexivil/package-modules": "^1.1.39",
+    "three-spritetext": "^1.9.5"
   },
   "scripts": {
     "start": "node-scripts start",
