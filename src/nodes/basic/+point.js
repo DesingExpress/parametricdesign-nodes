@@ -1,6 +1,5 @@
 import { Pure } from "@design-express/fabrica";
-import { Point } from "@nexivil/package-modules";
-import { staadPoint } from "./staadPoint";
+import { pipeLinePoint } from "./pipeLinePoint";
 export class genPoint extends Pure {
   //editor에서 path/title로 표시됨
   static path = "UserDefined";
@@ -13,7 +12,7 @@ export class genPoint extends Pure {
     this.addOutput("pointData", "parametric-design::pointData");
   }
   onExecute() {
-    let result = staadPoint(this.getInputData(1));
+    let result = pipeLinePoint(this.getInputData(1));
     // let input = { a: 100, b: 100, c: 100, d: 300, e: 100, f: 200 };
     // //절점 생성
     // let btm = [

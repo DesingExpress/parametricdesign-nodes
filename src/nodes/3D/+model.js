@@ -7,7 +7,7 @@ import {
 } from "@nexivil/package-modules";
 import { userMaterials } from "./material";
 import { Pure } from "@design-express/fabrica";
-import { staadModel } from "./staadModel";
+import { pipeLineModel } from "./pipeLineModel";
 
 export class genModel extends Pure {
   static path = "UserDefined";
@@ -25,7 +25,7 @@ export class genModel extends Pure {
   onExecute() {
     const pointData = this.getInputData(1);
     
-    let model = staadModel(pointData);
+    let model = pipeLineModel(pointData);
     //threejs-mesh로 변환
     const output = getMeshes3D(model, null, userMaterials);
     //출력객체 정의
