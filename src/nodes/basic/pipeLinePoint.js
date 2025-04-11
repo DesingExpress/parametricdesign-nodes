@@ -9,14 +9,18 @@ export function pipeLinePoint(input) {
   //branch 번호별로 도식화하여 2D로 작성필요(그래프로 시각화)
   //pidConnection => pipeRun List => branch Point로 연결관계(분기포인트) 정의 => 그래프로 시각화
   let pidConnection = input["2D"].pidConnection.data.map((o) => ({
-    LineName : o["Line ID"],
-    ItemTag : o["Item Tag"],
-    ItemSPID : o["Item SP_ID"],
-    ItemName : o["Item Name"],
-    ItemEnd : o["Item End"],
-    TopoNo : o["Topo No"],
-    SymbolName : o["Symbol Name"].split("\\")
+    LineName: o["Line ID"],
+    ItemTag: o["Item Tag"],
+    ItemSPID: o["Item SP_ID"],
+    ItemName: o["Item Name"],
+    ItemEnd: o["Item End"],
+    TopoNo: o["Topo No"],
+    SymbolName: o["Symbol Name"].split("\\"),
   }));
+  for (let p of pidConnection) {
+    let arr = p.LineName.split("-");
+    p["LineID"] = `${arr[0]}-${arr[2]}-${arr[3]}`;
+  }
   //connections의 각 파트의 중심좌표로 향후 커넥션즈 파트별 3차원 좌표 시각화에 활용(그래프로 시각화에는 사용이 안될 수 있음)
   let components = input["3D"].ComponentList.data.map((o) => ({
     point: new Point(o.LocationX, o.LocationY, o.LocationZ),
@@ -30,40 +34,431 @@ export function pipeLinePoint(input) {
   let conections = input["3D"].ConnectionList.data.map((o) => ({
     point: new Point(o.LocationX, o.LocationY, o.LocationZ),
     ConnectionOID: o.ConnectionOID,
-    part1 : {
-        PartOID : o.Part01,
-        PartName : o.Part01Name,
-        PartType : o.Part01Type,
-        RunOID : o.Run01,
-        RunName : o.Run01Name
+    part1: {
+      PartOID: o.Part01,
+      PartName: o.Part01Name,
+      PartType: o.Part01Type,
+      RunOID: o.Run01,
+      RunName: o.Run01Name,
     },
-    part2 : {
-        PartOID : o.Part02,
-        PartName : o.Part02Name,
-        PartType : o.Part02Type,
-        RunOID : o.Run02,
-        RunName : o.Run02Name
-    }
+    part2: {
+      PartOID: o.Part02,
+      PartName: o.Part02Name,
+      PartType: o.Part02Type,
+      RunOID: o.Run02,
+      RunName: o.Run02Name,
+    },
   }));
+
   //상기 분기가 이루어지는 커넥션포인트와 동일한지 여부 판단후 중복데이터일시 소거해도 될 듯
   let runToRuns = input["3D"]["Run-RunConnectionwithRemark"].data.map((o) => ({
     point: new Point(o.LocationX, o.LocationY, o.LocationZ),
     ConnectionOID: o.ConnectionOID,
-    Remark : o.Remark,
-    run1 : {
-        LineName : o.LineName1,
-        LindOID : o.LineOID1,
-        Path1 : o.Path1.split("\\"),
-        RunName : o.RunName1,
-        RunOID : o.RunOID1
+    Remark: o.Remark,
+    run1: {
+      LineName: o.LineName1,
+      LindOID: o.LineOID1,
+      Path1: o.Path1.split("\\"),
+      RunName: o.RunName1,
+      RunOID: o.RunOID1,
     },
-    run2 : {
-        LineName : o.LineName2,
-        LindOID : o.LineOID2,
-        Path1 : o.Path2.split("\\"),
-        RunName : o.RunName2,
-        RunOID : o.RunOID2
+    run2: {
+      LineName: o.LineName2,
+      LindOID: o.LineOID2,
+      Path1: o.Path2.split("\\"),
+      RunName: o.RunName2,
+      RunOID: o.RunOID2,
     },
   }));
-  return { pidConnection, conections, components, runToRuns};
+  let group3d = gen3DGroup(conections, components, runToRuns);
+  let group2d = gen2DGroup(pidConnection);
+
+  return { pidConnection, conections, components, runToRuns, group3d, group2d };
+}
+
+export function gen3DGroup(conections, components, runToRuns = []) {
+  let runDict = {};
+  let partDict = {};
+  for (let r of runToRuns) {
+    let r1 = r.run1;
+    let r2 = r.run2;
+    if (!runDict[r1.RunOID]) {
+      runDict[r1.RunOID] = {
+        lineName: r1.LineName,
+        runName: r1.RunName,
+      };
+    }
+    if (!runDict[r2.RunOID]) {
+      runDict[r2.RunOID] = {
+        lineName: r2.LineName,
+        runName: r2.RunName,
+      };
+    }
+  }
+  for (let c of conections) {
+    let r1 = c.part1.RunOID;
+    let r2 = c.part2.RunOID;
+    if (!runDict[r1]) {
+      let t = c.part1.RunName.split('"').map((a) => a.split("-"));
+      runDict[r1] = {
+        lineName:
+          t.length > 1 ? `${t[0][0]}-${t[1][1]}-${t[1][2]}` : c.part1.RunName,
+        runName: c.part1.RunName,
+      };
+    }
+    if (!runDict[r2]) {
+      let t = c.part2.RunName.split('"').map((a) => a.split("-"));
+      runDict[r2] = {
+        lineName:
+          t.length > 1 ? `${t[0][0]}-${t[1][1]}-${t[1][2]}` : c.part2.RunName,
+        runName: c.part2.RunName,
+      };
+    }
+    let p1 = c.part1.PartOID;
+    let p2 = c.part2.PartOID;
+    let comp1 = components.find((o) => o.PartOID === p1);
+    let comp2 = components.find((o) => o.PartOID === p2);
+    if (!partDict[p1]) {
+      partDict[p1] = {
+        name: c.part1.PartName,
+        adjacent: [c.part2.PartOID],
+        runOID: c.part1.RunOID,
+        type : c.part1.PartType,
+        point: comp1 ? comp1.point : c.point,
+        runName : runDict[c.part1.RunOID].runName,
+        lineName : runDict[c.part1.RunOID].lineName,
+      };
+    } else {
+      if (!partDict[p1].adjacent.includes(c.part2.PartOID)) {
+        partDict[p1].adjacent.push(c.part2.PartOID);
+      }
+    }
+    if (!partDict[p2]) {
+      partDict[p2] = {
+        name: c.part2.PartName,
+        adjacent: [c.part1.PartOID],
+        runOID: c.part2.RunOID,
+        type : c.part2.PartType,
+        point: comp2 ? comp2.point : c.point,
+        runName : runDict[c.part2.RunOID].runName,
+        lineName : runDict[c.part2.RunOID].lineName,
+      };
+    } else {
+      if (!partDict[p2].adjacent.includes(c.part1.PartOID)) {
+        partDict[p2].adjacent.push(c.part1.PartOID);
+      }
+    }
+  }
+
+  let endID = Object.keys(partDict).filter(
+    (id) => partDict[id].adjacent.length < 2
+  );
+  let branchID = Object.keys(partDict).filter(
+    (id) => partDict[id].adjacent.length > 2
+  );
+  //segment : branch의 끝단에서부터 분기점까지의 세그먼트 + 분기점에서 시작해서 분기점으로 끝나는 세그먼트
+  let endList = []; //endBranchList;
+  for (let id of endID) {
+    let segment = [id];
+    let currentID = id;
+    let nextID = "none";
+    while (![...endID, ...branchID].includes(nextID)) {
+      let adj = partDict[currentID].adjacent;
+      for (let i = 0; i < adj.length; i++) {
+        if (!segment.includes(adj[i])) {
+          nextID = adj[i];
+          break;
+        }
+      }
+      segment.push(nextID);
+      currentID = nextID;
+    }
+    if (!endID.includes(segment[segment.length - 1])) {
+      //end - end로 끝나는 단구간의 중복을 방지하기 위함
+      endList.push(segment);
+    }
+  }
+  let midList = [];
+  for (let id of branchID) {
+    let adj = partDict[id].adjacent;
+    for (let i = 0; i < adj.length; i++) {
+      if (![...endList, ...midList].flat().includes(adj[i])) {
+        let segment = [id, adj[i]];
+        let currentID = adj[i];
+        let nextID = adj[i];
+        while (!branchID.includes(nextID)) {
+          let adj = partDict[currentID].adjacent;
+          for (let i = 0; i < adj.length; i++) {
+            if (!segment.includes(adj[i])) {
+              nextID = adj[i];
+              break;
+            }
+          }
+          segment.push(nextID);
+          currentID = nextID;
+        }
+        midList.push(segment);
+      } else if (branchID.includes(adj[i])) {
+        //분기-분기끼리의 연결인 경우
+        let segment = [id, adj[i]]; //두개의 노드를 동시에 가진 세그먼트가 없는경우 추가
+        if (!midList.some((seg) => segment.every((id) => seg.includes(id)))) {
+          midList.push(segment);
+        }
+      }
+    }
+  }
+  let group = [];
+  let maxIter = endList.length;
+  let iter = 0;
+  while (endList.length > 0 && iter < maxIter) {
+    let ids = [endList[0][0], endList[0][endList[0].length - 1]];
+    let subGroup = { end: [], mid: [] };
+    let iter2 = 0;
+    let maxIter2 = midList.length;
+    while (
+      midList.filter((seg) => ids.some((id) => seg.includes(id))).length > 0 &&
+      iter2 < maxIter2
+    ) {
+      for (let i = midList.length - 1; i > -1; i--) {
+        if (ids.some((id) => midList[i].includes(id))) {
+          subGroup.mid.push(midList[i]);
+          if (!ids.includes(midList[i][0])) {
+            ids.push(midList[i][0]);
+          }
+          if (!ids.includes(midList[i][midList[i].length - 1])) {
+            ids.push(midList[i][midList[i].length - 1]);
+          }
+          midList.splice(i, 1);
+        }
+      }
+      iter2++;
+    }
+    for (let i = endList.length - 1; i > -1; i--) {
+      if (ids.some((id) => endList[i].includes(id))) {
+        subGroup.end.push(endList[i]);
+        if (!ids.includes(endList[i][0])) {
+          ids.push(endList[i][0]);
+        }
+        if (!ids.includes(endList[i][endList[i].length - 1])) {
+          ids.push(endList[i][endList[i].length - 1]);
+        }
+        endList.splice(i, 1);
+      }
+    }
+    if (subGroup.end.length + subGroup.mid.length > 0) {
+      subGroup["lines"] = [];
+      for (let seg of subGroup.end) {
+        for (let id of seg.slice(1)) {
+          let LineName = runDict[partDict[id].runOID].lineName;
+          if (!subGroup["lines"].includes(LineName)) {
+            subGroup["lines"].push(LineName);
+          }
+        }
+      }
+      for (let seg of subGroup.mid) {
+        for (let id of seg) {
+          let LineName = runDict[partDict[id].runOID].lineName;
+          if (!subGroup["lines"].includes(LineName)) {
+            subGroup["lines"].push(LineName);
+          }
+        }
+      }
+      group.push(subGroup);
+    }
+    iter++;
+  }
+  return { partDict, runDict, group };
+}
+
+export function gen2DGroup(pidConnection) {
+  let partDict = {};
+  let opcDict = {};
+  let conections = [];
+  for (let i = 0; i < pidConnection.length; i++) {
+    let p1 = pidConnection[i];
+    if (p1.ItemName.includes("OPC")) {
+      if (!opcDict[p1.ItemTag]) {
+        opcDict[p1.ItemTag] = [p1.ItemSPID];
+      } else {
+        if (!opcDict[p1.ItemTag].includes(p1.ItemSPID)) {
+          opcDict[p1.ItemTag].push(p1.ItemSPID);
+        }
+      } //OPC이름이 같은 경우
+    }
+  }
+  for (let i = 0; i < pidConnection.length; i += 2) {
+    let p1 = pidConnection[i];
+    let p2 = pidConnection[i + 1];
+    conections.push({
+      part1: {
+        PartOID: opcDict[p1.ItemTag] ? opcDict[p1.ItemTag][0] : p1.ItemSPID,
+        PartName: p1.ItemTag, //OPC이름이 같은 경우
+        PartType: p1.ItemName, //OPC인 경우
+        RunName: p1.LineName,
+      },
+      part2: {
+        PartOID: opcDict[p2.ItemTag] ? opcDict[p2.ItemTag][0] : p2.ItemSPID,
+        PartName: p2.ItemTag,
+        PartType: p2.ItemName,
+        RunName: p2.LineName,
+      },
+    });
+  }
+
+  for (let c of conections) {
+    let p1 = c.part1.PartOID;
+    let p2 = c.part2.PartOID;
+    if (!partDict[p1]) {
+      let t = c.part1.RunName.split('"').map((a) => a.split("-"));
+      let lineName = `${t[0][0]}-${t[1][1]}-${t[1][2]}`;
+      partDict[p1] = {
+        name: c.part1.PartName,
+        type: c.part1.PartType,
+        adjacent: [c.part2.PartOID],
+        runName: c.part1.RunName,
+        lineName 
+      };
+    } else {
+      if (!partDict[p1].adjacent.includes(c.part2.PartOID)) {
+        partDict[p1].adjacent.push(c.part2.PartOID);
+      }
+    }
+    if (!partDict[p2]) {
+      let t = c.part2.RunName.split('"').map((a) => a.split("-"));
+      let lineName = `${t[0][0]}-${t[1][1]}-${t[1][2]}`;
+      partDict[p2] = {
+        name: c.part2.PartName,
+        type: c.part1.PartType,
+        adjacent: [c.part1.PartOID],
+        runName: c.part2.RunName,
+        lineName
+      };
+    } else {
+      if (!partDict[p2].adjacent.includes(c.part1.PartOID)) {
+        partDict[p2].adjacent.push(c.part1.PartOID);
+      }
+    }
+  }
+  let endID = Object.keys(partDict).filter(
+    (id) => partDict[id].adjacent.length < 2
+  );
+  let branchID = Object.keys(partDict).filter(
+    (id) => partDict[id].adjacent.length > 2
+  );
+  //segment : branch의 끝단에서부터 분기점까지의 세그먼트 + 분기점에서 시작해서 분기점으로 끝나는 세그먼트
+  let endList = []; //endBranchList;
+  for (let id of endID) {
+    let segment = [id];
+    let currentID = id;
+    let nextID = "none";
+    while (![...endID, ...branchID].includes(nextID)) {
+      let adj = partDict[currentID].adjacent;
+      for (let i = 0; i < adj.length; i++) {
+        if (!segment.includes(adj[i])) {
+          nextID = adj[i];
+          break;
+        }
+      }
+      segment.push(nextID);
+      currentID = nextID;
+    }
+    if (!endID.includes(segment[segment.length - 1])) {
+      //end - end로 끝나는 단구간의 중복을 방지하기 위함
+      endList.push(segment);
+    }
+  }
+  let midList = [];
+  for (let id of branchID) {
+    let adj = partDict[id].adjacent;
+    for (let i = 0; i < adj.length; i++) {
+      if (![...endList, ...midList].flat().includes(adj[i])) {
+        let segment = [id, adj[i]];
+        let currentID = adj[i];
+        let nextID = adj[i];
+        while (!branchID.includes(nextID)) {
+          let adj = partDict[currentID].adjacent;
+          for (let i = 0; i < adj.length; i++) {
+            if (!segment.includes(adj[i])) {
+              nextID = adj[i];
+              break;
+            }
+          }
+          segment.push(nextID);
+          currentID = nextID;
+        }
+        midList.push(segment);
+      } else if (branchID.includes(adj[i])) {
+        //분기-분기끼리의 연결인 경우
+        let segment = [id, adj[i]]; //두개의 노드를 동시에 가진 세그먼트가 없는경우 추가
+        if (!midList.some((seg) => segment.every((id) => seg.includes(id)))) {
+          midList.push(segment);
+        }
+      }
+    }
+  }
+  let group = [];
+  let maxIter = endList.length;
+  let iter = 0;
+  while (endList.length > 0 && iter < maxIter) {
+    let ids = [endList[0][0], endList[0][endList[0].length - 1]];
+    let subGroup = { end: [], mid: [] };
+    let iter2 = 0;
+    let maxIter2 = midList.length;
+    while (
+      midList.filter((seg) => ids.some((id) => seg.includes(id))).length > 0 &&
+      iter2 < maxIter2
+    ) {
+      for (let i = midList.length - 1; i > -1; i--) {
+        if (ids.some((id) => midList[i].includes(id))) {
+          subGroup.mid.push(midList[i]);
+          if (!ids.includes(midList[i][0])) {
+            ids.push(midList[i][0]);
+          }
+          if (!ids.includes(midList[i][midList[i].length - 1])) {
+            ids.push(midList[i][midList[i].length - 1]);
+          }
+          midList.splice(i, 1);
+        }
+      }
+      iter2++;
+    }
+    for (let i = endList.length - 1; i > -1; i--) {
+      if (ids.some((id) => endList[i].includes(id))) {
+        subGroup.end.push(endList[i]);
+        if (!ids.includes(endList[i][0])) {
+          ids.push(endList[i][0]);
+        }
+        if (!ids.includes(endList[i][endList[i].length - 1])) {
+          ids.push(endList[i][endList[i].length - 1]);
+        }
+        endList.splice(i, 1);
+      }
+    }
+    if (subGroup.end.length + subGroup.mid.length > 0) {
+      subGroup["lines"] = [];
+      for (let seg of subGroup.end) {
+        for (let id of seg.slice(1)) {
+          let runName = partDict[id].runName;
+          let t1 = runName.split('"').map((a) => a.split("-"));
+          let LineID = `${t1[0][0]}-${t1[1][1]}-${t1[1][2]}`;
+          if (!subGroup["lines"].includes(LineID)) {
+            subGroup["lines"].push(LineID);
+          }
+        }
+      }
+      for (let seg of subGroup.mid) {
+        for (let id of seg) {
+          let runName = partDict[id].runName;
+          let t1 = runName.split('"').map((a) => a.split("-"));
+          let LineID = `${t1[0][0]}-${t1[1][1]}-${t1[1][2]}`;
+          if (!subGroup["lines"].includes(LineID)) {
+            subGroup["lines"].push(LineID);
+          }
+        }
+      }
+      group.push(subGroup);
+    }
+    iter++;
+  }
+  return { partDict, group };
 }

@@ -1,12 +1,10 @@
 import {
-  continuedDim,
-  DimStyle,
   fontloader,
   getMeshes2D,
-  Line,
 } from "@nexivil/package-modules";
 import { userlayers } from "./layer";
 import { Pure } from "@design-express/fabrica";
+import { draw2D3DCompare, genBranchDraw2 } from "./branch";
 
 export class genDraw extends Pure {
   static path = "UserDefined";
@@ -19,49 +17,26 @@ export class genDraw extends Pure {
   constructor() {
     super();
     this.addInput("pointData", "parametric-design::pointData");
-
+    this.addOutput("meshes", "array");
     this.addOutput("draws", "array");
+    this.addOutput("fileName", "");
+    this.addOutput("options", "");
   }
 
   onExecute() {
     const pointData = this.getInputData(1);
-    const { top } = pointData;
     //도면 속성 정의
-    const scale = 10;
-    const fontSize = scale * 2.5;
-    const style = new DimStyle("dimstyle1", scale, 3, { DIMADEC: 1 });
-    //도면 객체 생성
-    const draw = [];
-    draw.push(
-      new Line(top, "CS-CONC", true),
-      ...continuedDim(
-        top,
-        0,
-        -Math.PI / 2,
-        true,
-        fontSize,
-        1,
-        0,
-        false,
-        "CS-DIML",
-        style
-      ),
-      ...continuedDim(
-        top,
-        0,
-        Math.PI,
-        true,
-        fontSize,
-        1,
-        0,
-        false,
-        "CS-DIML",
-        style
-      )
-    );
+    // const draw = genBranchDraw2(pointData);
+    const draw = draw2D3DCompare(pointData);
+    //pidConnection을 브랜치별로 구분하여 내용을 작성
     //threejs-mesh로 변환
     const meshes = getMeshes2D(draw, userlayers);
     //출력객체 정의
+    let layer = { ...userlayers };
+    let option = { layer };
     this.setOutputData(1, meshes);
+    this.setOutputData(2, draw);
+    this.setOutputData(3, "2D3D");
+    this.setOutputData(4, option);
   }
 }

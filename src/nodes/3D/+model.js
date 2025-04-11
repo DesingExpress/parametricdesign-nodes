@@ -1,9 +1,5 @@
 import {
-  Extrude,
   getMeshes3D,
-  Loft,
-  Point,
-  RefPoint,
 } from "@nexivil/package-modules";
 import { userMaterials } from "./material";
 import { Pure } from "@design-express/fabrica";
@@ -26,7 +22,8 @@ export class genModel extends Pure {
     const pointData = this.getInputData(1);
     let pipe = pipeLineModel(pointData);
     const output = getMeshes3D(pipe.model, null, userMaterials);
+    console.log(pipe)
     //출력객체 정의
-    this.setOutputData(1, [...output, pipe.group]);
+    this.setOutputData(1, [...output, ...pipe.mesh]);
   }
 }
