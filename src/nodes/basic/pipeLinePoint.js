@@ -72,7 +72,8 @@ export function pipeLinePoint(input) {
   }));
   let group3d = gen3DGroup(conections, components, runToRuns);
   let group2d = gen2DGroup(pidConnection);
-
+  console.log("group2d", group2d);
+  console.log("group3d", group3d);
   return { pidConnection, conections, components, runToRuns, group3d, group2d };
 }
 
@@ -123,10 +124,10 @@ export function gen3DGroup(conections, components, runToRuns = []) {
         name: c.part1.PartName,
         adjacent: [c.part2.PartOID],
         runOID: c.part1.RunOID,
-        type : c.part1.PartType,
+        type: c.part1.PartType,
         point: comp1 ? comp1.point : c.point,
-        runName : runDict[c.part1.RunOID].runName,
-        lineName : runDict[c.part1.RunOID].lineName,
+        runName: runDict[c.part1.RunOID].runName,
+        lineName: runDict[c.part1.RunOID].lineName,
       };
     } else {
       if (!partDict[p1].adjacent.includes(c.part2.PartOID)) {
@@ -138,10 +139,10 @@ export function gen3DGroup(conections, components, runToRuns = []) {
         name: c.part2.PartName,
         adjacent: [c.part1.PartOID],
         runOID: c.part2.RunOID,
-        type : c.part2.PartType,
+        type: c.part2.PartType,
         point: comp2 ? comp2.point : c.point,
-        runName : runDict[c.part2.RunOID].runName,
-        lineName : runDict[c.part2.RunOID].lineName,
+        runName: runDict[c.part2.RunOID].runName,
+        lineName: runDict[c.part2.RunOID].lineName,
       };
     } else {
       if (!partDict[p2].adjacent.includes(c.part1.PartOID)) {
@@ -294,13 +295,13 @@ export function gen2DGroup(pidConnection) {
         PartOID: opcDict[p1.ItemTag] ? opcDict[p1.ItemTag][0] : p1.ItemSPID,
         PartName: p1.ItemTag, //OPC이름이 같은 경우
         PartType: p1.ItemName, //OPC인 경우
-        RunName: p1.LineName,
+        RunName: String(p1.ItemTag).includes('"') ? p1.ItemTag : p1.LineName,
       },
       part2: {
         PartOID: opcDict[p2.ItemTag] ? opcDict[p2.ItemTag][0] : p2.ItemSPID,
         PartName: p2.ItemTag,
         PartType: p2.ItemName,
-        RunName: p2.LineName,
+        RunName: String(p2.ItemTag).includes('"') ? p2.ItemTag : p2.LineName,
       },
     });
   }
@@ -311,12 +312,15 @@ export function gen2DGroup(pidConnection) {
     if (!partDict[p1]) {
       let t = c.part1.RunName.split('"').map((a) => a.split("-"));
       let lineName = `${t[0][0]}-${t[1][1]}-${t[1][2]}`;
+      if (p1.includes("8ED2A3CF2A274546A884412AE95DF640")) {
+        console.log("check", lineName);
+      }
       partDict[p1] = {
         name: c.part1.PartName,
         type: c.part1.PartType,
         adjacent: [c.part2.PartOID],
         runName: c.part1.RunName,
-        lineName 
+        lineName,
       };
     } else {
       if (!partDict[p1].adjacent.includes(c.part2.PartOID)) {
@@ -331,7 +335,7 @@ export function gen2DGroup(pidConnection) {
         type: c.part1.PartType,
         adjacent: [c.part1.PartOID],
         runName: c.part2.RunName,
-        lineName
+        lineName,
       };
     } else {
       if (!partDict[p2].adjacent.includes(c.part1.PartOID)) {

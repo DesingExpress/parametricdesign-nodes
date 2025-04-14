@@ -4,7 +4,7 @@ import {
 } from "@nexivil/package-modules";
 import { userlayers } from "./layer";
 import { Pure } from "@design-express/fabrica";
-import { draw2D3DCompare, genBranchDraw2 } from "./branch";
+import { draw2D3DCompare,} from "./branch";
 
 export class genDraw extends Pure {
   static path = "UserDefined";
