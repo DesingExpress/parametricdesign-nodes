@@ -43,13 +43,7 @@ export function staadModel(pointData) {
       default:
         mat = "red";
     }
-
     model.push(
-      // new Tube(a.point, w / 2, true, "red", {
-      //   name: "steelMember",
-      //   part: "member",
-      //   key: a.name,
-      // }),
       new Extrude(shape, thickness, { refPoint }, mat, {
         name: "steelMember",
         part: a.typeCategory,
@@ -57,57 +51,129 @@ export function staadModel(pointData) {
       })
     );
   }
-  let pline = pointData.pipeLine.reduce((output, obj) => {
-    (output[obj.lineName] = output[obj.lineName] || []).push(obj.point);
-    return output;
-  }, {});
+  //라인별로 최단 경로로 파이프 중심점을 조합, 데이터 확장으로 사용되지 않음
+  // let pline = pointData.pipeLine.reduce((output, obj) => {
+  //   (output[obj.lineName] = output[obj.lineName] || []).push(obj.point);
+  //   return output;
+  // }, {});
+  // for (let lineName in pline) {
+  //   let radius = 50;
+  //   let points = pline[lineName];
+  //   if (points.length > 1) {
+  //     let nPts = shortPath(points);
+  //     model.push(
+  //       new Tube(nPts, radius, true, "yellow", {
+  //         name: "pipeLine",
+  //         part: "pipe",
+  //         key: lineName,
+  //       })
+  //     );
+  //   }
+  // }
+  // comment end
+  let flange = ["FBLD", "FLGOL", "FRSW", "FOWN", "FSW", "FTHD", "FWN"];
+  let degree = 32;
+  let c = [...Array(degree+1)].map((_, i) => i);
+  let da = (Math.PI * 2) / degree;
+  console.log(c);
+  //파이프라인 3차원 모델링
+  for (let o of pointData.pipeLine) {
+    if (o.port1 && o.port2) {
+      let xAxis = new Point(
+        o.port2.point.x - o.port1.point.x,
+        o.port2.point.y - o.port1.point.y,
+        o.port2.point.z - o.port1.point.z
+      );
+      let ref1 = new RefPoint(o.port1.point, xAxis, 0);
+      let ref2 = new RefPoint(o.port2.point, xAxis, 0);
+      let r1 = o.port1.dia / 2;
+      let r2 = o.port2.dia / 2;
+      let circle1 = c.map((i) =>
+        PointToGlobal(
+          new Point(0, r1 * Math.cos(i * da), r1 * Math.sin(i * da)),
+          ref1
+        )
+      );
+      let circle2 = c.map((i) =>
+        PointToGlobal(
+          new Point(0, r2 * Math.cos(i * da), r2 * Math.sin(i * da)),
+          ref2
+        )
+      );
 
-  for (let lineName in pline) {
-    let radius = 50;
-    let points = pline[lineName];
-    if (points.length > 1) {
-      let nPts = shortPath(points);
+      let nPts =
+        o.type === "PIPE"
+          ? [o.port1.point, o.port2.point]
+          : [o.port1.point, o.point, o.port2.point];
+      let color =
+        o.type === "PIPE"
+          ? "green"
+          : flange.includes(o.type)
+          ? "blue"
+          : "yellow";
+      //check, 중심점 테스트
       model.push(
-        new Tube(nPts, radius, true, "yellow", {
+        new Loft([circle1, circle2], false, color, {
           name: "pipeLine",
-          part: "pipe",
-          key: lineName,
+          part: o.type,
+          key: o.lineName,
+        })
+        // new Tube(nPts, o.port1.dia / 2, true, color, {
+        //   name: o.type,
+        //   part: o.lineName,
+        //   key: o.id,
+        // })
+      );
+    }
+    if (o.port3) {
+      let nPts = [o.point, o.port3.point];
+      let color =
+        o.type === "PIPE"
+          ? "green"
+          : flange.includes(o.type)
+          ? "blue"
+          : "yellow";
+      model.push(
+        new Tube(nPts, o.port3.dia / 2, true, color, {
+          name: o.type,
+          part: o.lineName,
+          key: o.id,
         })
       );
     }
   }
 
-  for (let a of pointData.support) {
-    let p = a.point;
-    if (
-      a.componentName !== "Total Range" &&
-      Math.abs(p[0].x - p[1].x) > 0 &&
-      Math.abs(p[0].y - p[1].y) > 0 &&
-      Math.abs(p[0].z - p[1].z) > 0
-    ) {
-      let loft = [
-        [
-          new Point(p[0].x, p[0].y, p[0].z),
-          new Point(p[1].x, p[0].y, p[0].z),
-          new Point(p[1].x, p[1].y, p[0].z),
-          new Point(p[0].x, p[1].y, p[0].z),
-        ],
-        [
-          new Point(p[0].x, p[0].y, p[1].z),
-          new Point(p[1].x, p[0].y, p[1].z),
-          new Point(p[1].x, p[1].y, p[1].z),
-          new Point(p[0].x, p[1].y, p[1].z),
-        ],
-      ];
-      model.push(
-        new Loft(loft, true, "yellow", {
-          name: "support",
-          part: a.itemType,
-          key: a.name,
-        })
-      );
-    }
-  }
+  // for (let a of pointData.support) {
+  //   let p = a.point;
+  //   if (
+  //     a.componentName !== "Total Range" &&
+  //     Math.abs(p[0].x - p[1].x) > 0 &&
+  //     Math.abs(p[0].y - p[1].y) > 0 &&
+  //     Math.abs(p[0].z - p[1].z) > 0
+  //   ) {
+  //     let loft = [
+  //       [
+  //         new Point(p[0].x, p[0].y, p[0].z),
+  //         new Point(p[1].x, p[0].y, p[0].z),
+  //         new Point(p[1].x, p[1].y, p[0].z),
+  //         new Point(p[0].x, p[1].y, p[0].z),
+  //       ],
+  //       [
+  //         new Point(p[0].x, p[0].y, p[1].z),
+  //         new Point(p[1].x, p[0].y, p[1].z),
+  //         new Point(p[1].x, p[1].y, p[1].z),
+  //         new Point(p[0].x, p[1].y, p[1].z),
+  //       ],
+  //     ];
+  //     model.push(
+  //       new Loft(loft, true, "yellow", {
+  //         name: "support",
+  //         part: a.itemType,
+  //         key: a.name,
+  //       })
+  //     );
+  //   }
+  // }
 
   return model;
 }

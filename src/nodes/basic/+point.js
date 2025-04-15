@@ -13,6 +13,7 @@ export class genPoint extends Pure {
     this.addOutput("pointData", "parametric-design::pointData");
   }
   onExecute() {
+    console.log("input is ready")
     let result = staadPoint(this.getInputData(1));
     // let input = { a: 100, b: 100, c: 100, d: 300, e: 100, f: 200 };
     // //절점 생성
