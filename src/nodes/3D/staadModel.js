@@ -73,56 +73,188 @@ export function staadModel(pointData) {
   // comment end
   let flange = ["FBLD", "FLGOL", "FRSW", "FOWN", "FSW", "FTHD", "FWN"];
   let degree = 32;
-  let c = [...Array(degree+1)].map((_, i) => i);
+  let c = [...Array(degree + 1)].map((_, i) => i);
   let da = (Math.PI * 2) / degree;
-  console.log(c);
+  let e = 1;
   //파이프라인 3차원 모델링
   for (let o of pointData.pipeLine) {
     if (o.port1 && o.port2) {
-      let xAxis = new Point(
-        o.port2.point.x - o.port1.point.x,
-        o.port2.point.y - o.port1.point.y,
-        o.port2.point.z - o.port1.point.z
-      );
-      let ref1 = new RefPoint(o.port1.point, xAxis, 0);
-      let ref2 = new RefPoint(o.port2.point, xAxis, 0);
-      let r1 = o.port1.dia / 2;
-      let r2 = o.port2.dia / 2;
-      let circle1 = c.map((i) =>
-        PointToGlobal(
-          new Point(0, r1 * Math.cos(i * da), r1 * Math.sin(i * da)),
-          ref1
-        )
-      );
-      let circle2 = c.map((i) =>
-        PointToGlobal(
-          new Point(0, r2 * Math.cos(i * da), r2 * Math.sin(i * da)),
-          ref2
-        )
-      );
-
-      let nPts =
-        o.type === "PIPE"
-          ? [o.port1.point, o.port2.point]
-          : [o.port1.point, o.point, o.port2.point];
       let color =
         o.type === "PIPE"
           ? "green"
           : flange.includes(o.type)
           ? "blue"
           : "yellow";
-      //check, 중심점 테스트
+      let p1 = o.port1.point;
+      let p2 = o.port2.point;
+      let org = o.point;
+      let r1 = o.port1.dia / 2;
+      let r2 = o.port2.dia / 2;
+      let loft = [];
+      if (o.type === "NaN") {
+        //90 or 45 elbow
+        let l1 = LineLength([org, p1]);
+        let l2 = LineLength([org, p2]);
+        // let l12 = LineLength([p1, p2]);
+        let ra = Math.min(l1, l2);
+        //l1 && l2는 반드시 0이 아니어야 함;
+        let v1 = new Point(
+          (p1.x - org.x) / l1,
+          (p1.y - org.y) / l1,
+          (p1.z - org.z) / l1
+        );
+        let v2 = new Point(
+          (p2.x - org.x) / l2,
+          (p2.y - org.y) / l2,
+          (p2.z - org.z) / l2
+        );
+
+        let ca = Math.acos(
+          Math.max(-1, Math.min(1, v1.x * v2.x + v1.y * v2.y + v1.z * v2.z))
+        ); //중심각
+        if (ca > (Math.PI * 2) / 3) {
+          color = "magenta";
+        }
+        let div = 6; //6분할
+        let dca = ca / div;
+        let co = new Point( //중심좌표
+          org.x + ra * (v1.x + v2.x),
+          org.y + ra * (v1.y + v2.y),
+          org.z + ra * (v1.z + v2.z)
+        );
+        let ay1 = 0;
+        let isP1Vertical = v1.x === 0 && v1.y === 0;
+        if (isP1Vertical) {
+          let p2yVec = PointToGlobal(
+            new Point(0, 1, 0),
+            new RefPoint(new Point(0, 0, 0), new Point(v2.x, v2.y, v2.z))
+          );
+          let p1yVec = PointToGlobal(
+            new Point(0, 1, 0),
+            new RefPoint(new Point(0, 0, 0), new Point(-v1.x, -v1.y, -v1.z))
+          );
+          let sign = -v1.z > 0 ? 1 : -1;
+          ay1 = sign * Math.atan2(p2yVec.y, p2yVec.x) + (sign * Math.PI) / 2; //Math.atan2(p1yVec.y, p1yVec.x))
+          // console.log(Math.atan2(p1yVec.y, p1yVec.x))
+          color = "red";
+        }
+        let ref1 = new RefPoint(p1, new Point(-v1.x, -v1.y, -v1.z), ay1);
+        loft.push(
+          c.map((i) =>
+            PointToGlobal(
+              new Point(0, r1 * Math.cos(i * da), r1 * Math.sin(i * da)),
+              ref1
+            )
+          )
+        );
+        for (
+          let j = l1 - ra > e ? 0 : 1;
+          j < (l2 - ra > e ? div + 1 : div);
+          j++
+        ) {
+          let angle = dca * j;
+          let d1 = Math.cos(angle) * ra;
+          let d2 = Math.sin(angle) * ra;
+          let cp = new Point(
+            co.x - d1 * v2.x - d2 * v1.x,
+            co.y - d1 * v2.y - d2 * v1.y,
+            co.z - d1 * v2.z - d2 * v1.z
+          );
+          let xAxis = new Point(
+            d2 * v2.x - d1 * v1.x,
+            d2 * v2.y - d1 * v1.y,
+            d2 * v2.z - d1 * v1.z
+          );
+          let ref = new RefPoint(cp, xAxis, 0);
+          loft.push(
+            c.map((i) =>
+              PointToGlobal(
+                new Point(0, r2 * Math.cos(i * da), r2 * Math.sin(i * da)),
+                ref
+              )
+            )
+          );
+        }
+        let ay2 = 0;
+        let bool = true;
+        let isP2Vertical = v2.x === 0 && v2.y === 0;
+        if (isP2Vertical) {
+          let p1yVec = PointToGlobal(
+            new Point(0, 1, 0),
+            new RefPoint(new Point(0, 0, 0), new Point(-v1.x, -v1.y, -v1.z))
+          );
+          let p2yVec = PointToGlobal(
+            new Point(0, 1, 0),
+            new RefPoint(new Point(0, 0, 0), new Point(v2.x, v2.y, v2.z))
+          );
+          let sign = v2.z > 0 ? 1 : -1;
+          ay2 =
+            sign *
+            (Math.atan2(p1yVec.y, p1yVec.x) - Math.atan2(p2yVec.y, p2yVec.x));
+          if (Math.abs(Math.atan2(p1yVec.y, p1yVec.x)) < 0.001) {
+            if(Math.abs(Math.atan2(p2yVec.y, p2yVec.x))<0.001){
+              ay2 = 0
+            }
+          } else {
+            if(sign<0){
+              
+              if(Math.atan2(p1yVec.y, p1yVec.x)>0){
+                if(Math.atan2(p1yVec.y, p1yVec.x)>2){
+                  ay2 = Math.atan2(p1yVec.y, p1yVec.x) + Math.PI/2
+                } else {
+                  ay2 = Math.atan2(p1yVec.y, p1yVec.x) - Math.PI/2
+                }
+              } else {
+                
+                if(Math.atan2(p1yVec.y, p1yVec.x)<-2){
+                  ay2 = sign * (Math.atan2(p1yVec.y, p1yVec.x) - Math.PI/2)
+                } else {
+                  ay2 = Math.atan2(p1yVec.y, p1yVec.x) - Math.PI/2
+                }
+              }
+            } else {
+              console.log(sign, Math.atan2(p1yVec.y, p1yVec.x), Math.atan2(p2yVec.y, p2yVec.x))
+              ay2 = sign * (Math.atan2(p1yVec.y, p1yVec.x) - Math.PI/2)
+            }
+          }
+
+          color = "cyan";
+        }
+        if (bool) {
+          let ref2 = new RefPoint(p2, new Point(v2.x, v2.y, v2.z), ay2);
+          loft.push(
+            c.map((i) =>
+              PointToGlobal(
+                new Point(0, r2 * Math.cos(i * da), r2 * Math.sin(i * da)),
+                ref2
+              )
+            )
+          );
+        }
+      } else {
+        let xAxis = new Point(p2.x - p1.x, p2.y - p1.y, p2.z - p1.z);
+        let ref1 = new RefPoint(p1, xAxis, 0);
+        let ref2 = new RefPoint(p2, xAxis, 0);
+        let circle1 = c.map((i) =>
+          PointToGlobal(
+            new Point(0, r1 * Math.cos(i * da), r1 * Math.sin(i * da)),
+            ref1
+          )
+        );
+        let circle2 = c.map((i) =>
+          PointToGlobal(
+            new Point(0, r2 * Math.cos(i * da), r2 * Math.sin(i * da)),
+            ref2
+          )
+        );
+        loft.push(circle1, circle2);
+      }
       model.push(
-        new Loft([circle1, circle2], false, color, {
+        new Loft(loft, false, color, {
           name: "pipeLine",
           part: o.type,
           key: o.lineName,
         })
-        // new Tube(nPts, o.port1.dia / 2, true, color, {
-        //   name: o.type,
-        //   part: o.lineName,
-        //   key: o.id,
-        // })
       );
     }
     if (o.port3) {
