@@ -24,10 +24,10 @@ export class genModel extends Pure {
   }
   onExecute() {
     const pointData = this.getInputData(1);
-    
-    let model = staadModel(pointData);
-    //threejs-mesh로 변환
-    const output = getMeshes3D(model, null, userMaterials);
+    let staad = staadModel(pointData)    
+    let model = staad.model;
+        //threejs-mesh로 변환
+    const output = [...getMeshes3D(model, null, userMaterials), ...staad.mesh];
     //출력객체 정의
     this.setOutputData(1, output);
   }
