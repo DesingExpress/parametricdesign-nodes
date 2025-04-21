@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils";
 
 import {
   Extrude,
@@ -16,6 +17,7 @@ import {
   TwoPointsLength,
 } from "@nexivil/package-modules";
 import { flangeSize } from "./pipeData";
+import { userMaterials } from "./material";
 
 export function staadModel(pointData) {
   let model = [];
@@ -72,8 +74,12 @@ export function staadModel(pointData) {
   let flatItem = [];
   let refs = []; //refPoint집합
   let instrument = [];
+  let supports = [];
+  let pipeComp = [];
+  let initPoint = new Point(0, 0, 0);
   for (let o of pointData.pipeLine) {
-    let partName = o.type;
+    let partName = o.lineName;
+    let keyName = o.type;
     let isPipe = pipe.includes(o.type);
     let isFlange = flange.includes(o.type);
     let isFLGOL = o.type === "FLGOL";
@@ -358,7 +364,7 @@ export function staadModel(pointData) {
                 )
               )
             );
-            model.push(...valveModel(o, ref));
+            pipeComp.push(...valveModel(o, ref));
           }
         }
         let circle2 = c.map((i) =>
@@ -397,11 +403,11 @@ export function staadModel(pointData) {
           );
         }
       }
-      model.push(
+      pipeComp.push(
         new Loft(loft, false, color, {
           name: "pipeLine",
           part: partName,
-          key: o.lineName,
+          key: keyName,
         })
       );
       if (o.port3) {
@@ -435,11 +441,11 @@ export function staadModel(pointData) {
           )
         );
         loft.push(circle1, circle2);
-        model.push(
+        pipeComp.push(
           new Loft(loft, false, color, {
             name: "pipeLine",
             part: partName,
-            key: o.lineName,
+            key: keyName,
           })
         );
       }
@@ -473,11 +479,11 @@ export function staadModel(pointData) {
           )
         );
         loft.push(circle1, circle2);
-        model.push(
+        pipeComp.push(
           new Loft(loft, false, color, {
             name: "pipeLine",
             part: partName,
-            key: o.lineName,
+            key: keyName,
           })
         );
       }
@@ -489,7 +495,8 @@ export function staadModel(pointData) {
   for (let o of instrument) {
     //형상에 대해서 추후 논의가 필요, 직사각형 박스형태가 맞을지도 모름
     let color = "red";
-    let partName = o.type;
+    let partName = o.lineName;
+    let keyName = o.type;
     let org = o.point;
     let ports = [];
     let p1 = o.port1.point;
@@ -505,7 +512,7 @@ export function staadModel(pointData) {
     }
     if (o.port4) {
       ports.push(o.port4);
-      partName = "INSTRUMENT-4Port";
+      // partName = "INSTRUMENT-4Port";
     }
     let minZ = Infinity;
     let maxZ = -Infinity;
@@ -516,13 +523,6 @@ export function staadModel(pointData) {
       let loft = [];
       let p = port.point;
       let r = port.dia / 2;
-      //p1이 항상 수직이라고 가정하였지만, 기울어진 방향으로 인하여 형상 오류 발생함, 각 연결되어 있는 파이프라인의 refPoint를 기준으로 해야할듯이 보임
-      // if(ii>1){
-      //   let v3 = new Point(p.x - p1.x, p.y - p1.y, p.z - p1.z);
-      //   let l1 = PointLength(v1)
-      //   let h = (v1.x * v3.x + v1.y * v3.y + v1.z * v3.z) / l1;
-      //   org = new Point(p1.x + v1.x*h/l1, p1.y + v1.y*h/l1, p1.z + v1.z*h/l1 );
-      // }
       let xAxis = new Point(p.x - org.x, p.y - org.y, p.z - org.z);
       let ref0 = refs.find(
         (pt) =>
@@ -566,11 +566,11 @@ export function staadModel(pointData) {
         )
       );
       loft.push(circle1, circle2);
-      model.push(
+      pipeComp.push(
         new Loft(loft, false, color, {
           name: "pipeLine",
           part: partName,
-          key: o.lineName,
+          key: keyName,
         })
       );
     }
@@ -597,11 +597,11 @@ export function staadModel(pointData) {
             )
           )
       );
-      model.push(
+      pipeComp.push(
         new Loft(body, true, color, {
           name: "pipeLine",
           part: partName,
-          key: o.lineName,
+          key: keyName,
         })
       );
     }
@@ -611,6 +611,8 @@ export function staadModel(pointData) {
     let color = "red";
     let p = o.port1.point;
     let r = o.port1.dia / 2;
+    let partName = o.lineName;
+    let keyName = o.keyName;
     let ref = refs.find(
       (pt) =>
         Math.abs(pt.x - p.x) < 10 &&
@@ -626,11 +628,11 @@ export function staadModel(pointData) {
             ref
           )
         );
-      model.push(
+      pipeComp.push(
         new Loft([circle2], true, color, {
           name: "pipeLine",
-          part: o.type,
-          key: o.lineName,
+          part: partName,
+          key: keyName,
         })
       );
     } else {
@@ -659,13 +661,59 @@ export function staadModel(pointData) {
           new Point(p[0].x, p[1].y, p[1].z),
         ],
       ];
-      model.push(
+      supports.push(
         new Loft(loft, true, "yellow", {
           name: "support",
-          part: a.itemType,
+          part: a.lineName,
           key: a.name,
         })
       );
+    }
+  }
+  let supportsByLine = supports.reduce((acc, cur) => {
+    (acc[cur.meta.part] = acc[cur.meta.part] || []).push(cur);
+    return acc;
+  }, {});
+  for (let part in supportsByLine) {
+    let supportsByName = supportsByLine[part].reduce((acc, cur) => {
+      (acc[cur.meta.key] = acc[cur.meta.key] || []).push(cur);
+      return acc;
+    }, {});
+    for (let key in supportsByName) {
+      let geos = supportsByName[key].map((o) => o.threeFunc(initPoint));
+      let matColor = supportsByName[key][0].meta.material;
+      let geo = BufferGeometryUtils.mergeGeometries(geos);
+      let supportMesh = new THREE.Mesh(geo, userMaterials[matColor]);
+      supportMesh["userData"] = {
+        name: "support",
+        part: part,
+        key: key,
+      };
+      mesh.push(supportMesh)
+    }
+    
+  }
+
+  let pipeByLine = pipeComp.reduce((acc, cur) => {
+    (acc[cur.meta.part] = acc[cur.meta.part] || []).push(cur);
+    return acc;
+  }, {});
+  for (let part in pipeByLine) {
+    let pipeByName = pipeByLine[part].reduce((acc, cur) => {
+      (acc[cur.meta.key] = acc[cur.meta.key] || []).push(cur);
+      return acc;
+    }, {});
+    for (let key in pipeByName) {
+      let geos = pipeByName[key].map((o) => o.threeFunc(initPoint));
+      let matColor = pipeByName[key][0].meta.material;
+      let geo = BufferGeometryUtils.mergeGeometries(geos);
+      let pipeMesh = new THREE.Mesh(geo, userMaterials[matColor]);
+      pipeMesh["userData"] = {
+        name: "pipeLine",
+        part: part,
+        key: key,
+      };
+      mesh.push(pipeMesh)
     }
   }
   return { model, mesh };
@@ -673,7 +721,9 @@ export function staadModel(pointData) {
 
 export function valveModel(o, ref) {
   let color = "magenta";
-  let model = [];
+  let partName = o.lineName;
+  let keyName = o.type;
+  let pipeComp = [];
   let loft = [];
   let degree = 12;
   let c = [...Array(degree + 1)].map((_, i) => i);
@@ -719,11 +769,11 @@ export function valveModel(o, ref) {
         )
       ),
     ];
-    model.push(
+    pipeComp.push(
       new Loft(bar, false, color, {
         name: "pipeLine",
-        part: o.type,
-        key: o.lineName,
+        part: partName,
+        key: keyName,
       })
     );
   }
@@ -740,22 +790,22 @@ export function valveModel(o, ref) {
       ref
     )
   );
-  model.push(
+  pipeComp.push(
     new Loft(handle, false, color, {
       name: "pipeLine",
-      part: o.type,
-      key: o.lineName,
+      part: partName,
+      key: keyName,
     })
   );
-  model.push(
+  pipeComp.push(
     new Loft(loft, false, color, {
       name: "pipeLine",
-      part: o.type,
-      key: o.lineName,
+      part: partName,
+      key: keyName,
     })
   );
 
-  return model;
+  return pipeComp;
 }
 
 export function shortPath(points) {
