@@ -16,7 +16,7 @@ export function staadPoint(input0) {
     input[sheet.name] = { column, data : arr}
   }
   console.log(input);
-  let steelMember = input.steelMember.data.map((o) => ({
+  let steelMember = input.steelMember.data.filter(o=> o.structureMember===0).map((o) => ({
     name: o.memberPartName,
     point: [
       new Point(o.startX * r, o.startY * r, o.startZ * r),

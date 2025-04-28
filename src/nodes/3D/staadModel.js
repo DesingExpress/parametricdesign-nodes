@@ -177,25 +177,6 @@ export function staadModel(pointData) {
             let sign = v2.z > 0 ? 1 : -1;
             ay2 = sign * (theta1 - theta2);
           }
-          // p1yVec = PointToGlobal(
-          //   new Point(0, 1, 0),
-          //   new RefPoint(
-          //     new Point(0, 0, 0),
-          //     new Point(-v1.x, -v1.y, -v1.z),
-          //     ay1
-          //   )
-          // );
-          // p2yVec = PointToGlobal(
-          //   new Point(0, 1, 0),
-          //   new RefPoint(new Point(0, 0, 0), new Point(v2.x, v2.y, v2.z), ay2)
-          // );
-          // let t2 =
-          //   p1yVec.x * p2yVec.x + p1yVec.y * p2yVec.y + p1yVec.z * p2yVec.z;
-          // if (t2 < 0.1) {
-          //   console.log("check Error");
-          //   color = "red";
-          //   partName += "Err";
-          // }
         }
         let ref1 = new RefPoint(p1, new Point(-v1.x, -v1.y, -v1.z), ay1);
         let ref2 = new RefPoint(p2, new Point(v2.x, v2.y, v2.z), ay2);
@@ -493,7 +474,7 @@ export function staadModel(pointData) {
     }
   }
   for (let o of instrument) {
-    //형상에 대해서 추후 논의가 필요, 직사각형 박스형태가 맞을지도 모름
+    //형상에 대한 추후 논의가 필요
     let color = "red";
     let partName = o.lineName;
     let keyName = o.type;
