@@ -8,7 +8,7 @@ export function pipeLinePoint(input) {
   //시점이나 종점의 데이터가 다른 세그먼트 내의 파트로 정의 된 경우에 연결관계 정의 (parent, children),
   //branch 번호별로 도식화하여 2D로 작성필요(그래프로 시각화)
   //pidConnection => pipeRun List => branch Point로 연결관계(분기포인트) 정의 => 그래프로 시각화
-  let pidConnection = input["2D"].pidConnection.data.map((o) => ({
+  let pidConnection = input["2D"].pidConnection.data.map((o, index) => ({
     LineName: o["Line ID"],
     ItemTag: o["Item Tag"],
     ItemSPID: o["Item SP_ID"],
@@ -16,6 +16,7 @@ export function pipeLinePoint(input) {
     ItemEnd: o["Item End"],
     TopoNo: o["Topo No"],
     SymbolName: o["Symbol Name"].split("\\"),
+    index,
   }));
   for (let p of pidConnection) {
     let arr = p.LineName.split("-");
@@ -96,6 +97,8 @@ export function gen3DGroup(conections, components, runToRuns = []) {
       };
     }
   }
+  // let pType = {};
+  // let branchPoint = [];
   for (let c of conections) {
     let r1 = c.part1.RunOID;
     let r2 = c.part2.RunOID;
@@ -119,6 +122,38 @@ export function gen3DGroup(conections, components, runToRuns = []) {
     let p2 = c.part2.PartOID;
     let comp1 = components.find((o) => o.PartOID === p1);
     let comp2 = components.find((o) => o.PartOID === p2);
+    // //타입 검증 코드
+    // if (
+    //   comp1 &&
+    //   comp1.point.x === c.point.x &&
+    //   comp1.point.y === c.point.y &&
+    //   comp1.point.z === c.point.z
+    // ) {
+    //   pType[c.part1.PartType] = "";
+    // }
+    // if (
+    //   comp2 &&
+    //   comp2.point.x === c.point.x &&
+    //   comp2.point.y === c.point.y &&
+    //   comp2.point.z === c.point.z
+    // ) {
+    //   pType[c.part2.PartType] = "";
+    // }
+    // if (comp1 && comp2 && c.part1.RunOID !== c.part2.RunOID) {
+    //   branchPoint.push({
+    //     a: c.part1.PartType,
+    //     b: c.part2.PartType,
+    //     c:
+    //       comp1.point.x === c.point.x &&
+    //       comp1.point.y === c.point.y &&
+    //       comp1.point.z === c.point.z,
+    //     d:
+    //       comp2.point.x === c.point.x &&
+    //       comp2.point.y === c.point.y &&
+    //       comp2.point.z === c.point.z,
+    //   });
+    // }
+    // //검증코드 끝
     if (!partDict[p1]) {
       partDict[p1] = {
         name: c.part1.PartName,
@@ -150,7 +185,9 @@ export function gen3DGroup(conections, components, runToRuns = []) {
       }
     }
   }
-
+  // console.log("check", branchPoint);
+  // console.log("check", pType); //기준위치와 커넥션위치가 같은 부재
+  
   let endID = Object.keys(partDict).filter(
     (id) => partDict[id].adjacent.length < 2
   );
@@ -293,13 +330,19 @@ export function gen2DGroup(pidConnection) {
     conections.push({
       part1: {
         PartOID: opcDict[p1.ItemTag] ? opcDict[p1.ItemTag][0] : p1.ItemSPID,
-        PartName: p1.ItemTag, //OPC이름이 같은 경우
+        PartName:
+          p1.ItemTag === "N/A"
+            ? p1.SymbolName[p1.SymbolName.length - 1].slice(0, -4)
+            : p1.ItemTag, //OPC이름이 같은 경우
         PartType: p1.ItemName, //OPC인 경우
         RunName: String(p1.ItemTag).includes('"') ? p1.ItemTag : p1.LineName,
       },
       part2: {
         PartOID: opcDict[p2.ItemTag] ? opcDict[p2.ItemTag][0] : p2.ItemSPID,
-        PartName: p2.ItemTag,
+        PartName:
+          p2.ItemTag === "N/A"
+            ? p2.SymbolName[p2.SymbolName.length - 1].slice(0, -4)
+            : p2.ItemTag,
         PartType: p2.ItemName,
         RunName: String(p2.ItemTag).includes('"') ? p2.ItemTag : p2.LineName,
       },
@@ -312,9 +355,6 @@ export function gen2DGroup(pidConnection) {
     if (!partDict[p1]) {
       let t = c.part1.RunName.split('"').map((a) => a.split("-"));
       let lineName = `${t[0][0]}-${t[1][1]}-${t[1][2]}`;
-      if (p1.includes("8ED2A3CF2A274546A884412AE95DF640")) {
-        console.log("check", lineName);
-      }
       partDict[p1] = {
         name: c.part1.PartName,
         type: c.part1.PartType,
