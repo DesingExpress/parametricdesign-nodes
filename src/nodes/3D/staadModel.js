@@ -2,6 +2,7 @@ import * as THREE from "three";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils";
 
 import {
+  ExtendPoint,
   Extrude,
   GetDirVector,
   GetPointBasedLength,
@@ -79,13 +80,21 @@ export function staadModel(pointData) {
   let pipeComp = [];
   for (let o of pointData.pipeLine) {
     let partName = o.lineName;
-    let keyName = o.type;
     let isPipe = pipe.includes(o.type);
     let isFlange = flange.includes(o.type);
     let isFLGOL = o.type === "FLGOL";
     let isValve = valve.includes(o.type);
     let isOlet = olet.includes(o.type);
     let isLateral = lateral.includes(o.type);
+    let keyName = isPipe
+      ? "pipeComp"
+      : isFlange
+      ? "flange"
+      : isValve
+      ? "valve"
+      : isOlet
+      ? "olet"
+      : "etc"; //o.type; //지오메트리 머징을 위한 타입별 묶음
     let color = isPipe
       ? "green"
       : isFlange
@@ -281,7 +290,7 @@ export function staadModel(pointData) {
               )
             )
           );
-          ref1 = new RefPoint(GetPointBasedLength([p1, p2], t), xAxis, 0);
+          ref1 = new RefPoint(ExtendPoint(p2, p1, -t), xAxis, 0);
           loft.push(
             c.map((i) =>
               PointToGlobal(
@@ -292,11 +301,7 @@ export function staadModel(pointData) {
           );
         }
         if (isOlet && o.type !== "Sockolet, flat") {
-          ref1 = new RefPoint(
-            GetPointBasedLength([p1, p2], o.port1.dia / 2),
-            xAxis,
-            0
-          );
+          ref1 = new RefPoint(ExtendPoint(p2, p1, -o.port1.dia / 2), xAxis, 0);
         }
         let circle1 = c.map((i) =>
           PointToGlobal(
@@ -308,7 +313,7 @@ export function staadModel(pointData) {
         if ((isValve || isFLGOL) && flangeSize[o.port2.npd]) {
           let t = flangeSize[o.port2.npd].t * 25.4;
           let rw = (flangeSize[o.port2.npd].OD * 25.4) / 2;
-          ref2 = new RefPoint(GetPointBasedLength([p2, p1], t), xAxis, 0);
+          ref2 = new RefPoint(ExtendPoint(p1, p2, -t), xAxis, 0);
           if (isValve) {
             let ref = new RefPoint(org, xAxis, 0);
             let l1 = LineLength([org, p1]);
@@ -397,7 +402,7 @@ export function staadModel(pointData) {
         let v1 = new Point(p2.x - p1.x, p2.y - p1.y, p2.z - p1.z);
         let v3 = new Point(p3.x - p1.x, p3.y - p1.y, p3.z - p1.z);
         let h = (v1.x * v3.x + v1.y * v3.y + v1.z * v3.z) / PointLength(v1);
-        let p0 = GetPointBasedLength([p1, p2], h);
+        let p0 = ExtendPoint(p2, p1, -h);
         let org = p0.x && !isLateral ? p0 : o.point;
         // let org = o.point;
         let r3 = o.port3.dia / 2;
@@ -436,7 +441,7 @@ export function staadModel(pointData) {
         let v1 = new Point(p2.x - p1.x, p2.y - p1.y, p2.z - p1.z);
         let v3 = new Point(p4.x - p1.x, p4.y - p1.y, p4.z - p1.z);
         let h = (v1.x * v3.x + v1.y * v3.y + v1.z * v3.z) / PointLength(v1);
-        let p0 = GetPointBasedLength([p1, p2], h);
+        let p0 = ExtendPoint(p2, p1, -h);
         let org = p0.x && !isLateral ? p0 : o.point;
         let r4 = o.port4.dia / 2;
         let xAxis = new Point(p4.x - org.x, p4.y - org.y, p4.z - org.z);
@@ -477,7 +482,7 @@ export function staadModel(pointData) {
     //형상에 대한 추후 논의가 필요
     let color = "red";
     let partName = o.lineName;
-    let keyName = o.type;
+    let keyName = "instrument"; //o.type;
     let org = o.point;
     let ports = [];
     let p1 = o.port1.point;
@@ -593,7 +598,7 @@ export function staadModel(pointData) {
     let p = o.port1.point;
     let r = o.port1.dia / 2;
     let partName = o.lineName;
-    let keyName = o.keyName;
+    let keyName = "plug&cap"; //o.type;
     let ref = refs.find(
       (pt) =>
         Math.abs(pt.x - p.x) < 10 &&
@@ -680,31 +685,43 @@ export function staadModel(pointData) {
     return acc;
   }, {});
   for (let part in supportsByLine) {
-    let supportsByName = supportsByLine[part].reduce((acc, cur) => {
-      (acc[cur.meta.key] = acc[cur.meta.key] || []).push(cur);
-      return acc;
-    }, {});
-    for (let key in supportsByName) {
-      let geos = supportsByName[key].map((o) => o.threeFunc(initPoint));
-      let matColor = supportsByName[key][0].meta.material;
-      let geo = BufferGeometryUtils.mergeGeometries(geos);
-      let supportMesh = new THREE.Mesh(geo, userMaterials[matColor]);
-      supportMesh["userData"] = {
-        name: "support",
-        part: part,
-        key: key,
-      };
-      mesh.push(supportMesh);
-    }
+    let geos = supportsByLine[part].map((o) => o.threeFunc(initPoint));
+    let matColor = supportsByLine[part][0].meta.material;
+    let geo = BufferGeometryUtils.mergeGeometries(geos);
+    let supportMesh = new THREE.Mesh(geo, userMaterials[matColor]);
+    supportMesh["userData"] = {
+      name: "support",
+      part: part,
+      key: "merged",
+    };
+    mesh.push(supportMesh);
   }
-
+  // for (let part in supportsByLine) {
+  //   let supportsByName = supportsByLine[part].reduce((acc, cur) => {
+  //     (acc[cur.meta.key] = acc[cur.meta.key] || []).push(cur);
+  //     return acc;
+  //   }, {});
+  //   for (let key in supportsByName) {
+  //     let geos = supportsByName[key].map((o) => o.threeFunc(initPoint));
+  //     let matColor = supportsByName[key][0].meta.material;
+  //     let geo = BufferGeometryUtils.mergeGeometries(geos);
+  //     let supportMesh = new THREE.Mesh(geo, userMaterials[matColor]);
+  //     supportMesh["userData"] = {
+  //       name: "support",
+  //       part: part,
+  //       key: key,
+  //     };
+  //     mesh.push(supportMesh);
+  //   }
+  // }
+  console.log(model.length + mesh.length, "entities is generated");
   return { model, mesh };
 }
 
 export function valveModel(o, ref) {
   let color = "magenta";
   let partName = o.lineName;
-  let keyName = o.type;
+  let keyName = "valve"; //o.type;
   let pipeComp = [];
   let loft = [];
   let degree = 12;

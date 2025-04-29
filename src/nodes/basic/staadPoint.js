@@ -11,25 +11,25 @@ export function staadPoint(input0) {
       for (let i = 0; i < column.length; i++) {
         data[column[i]] = sheet.data[j][i];
       }
-      arr.push(data)
+      arr.push(data);
     }
-    input[sheet.name] = { column, data : arr}
+    input[sheet.name] = { column, data: arr };
   }
-  console.log(input);
-  //.filter(o=> o.structureMember===0)
-  let steelMember = input.steelMember.data.map((o) => ({
-    name: o.memberPartName,
-    point: [
-      new Point(o.startX * r, o.startY * r, o.startZ * r),
-      new Point(o.endX * r, o.endY * r, o.endZ * r),
-    ],
-    type: o.type,
-    section: o.section,
-    typeCategory: o.typeCategory,
-    width: o.steelWidth * r,
-    height: o.steelDepth * r,
-    angle: o.angle,
-  }));
+  let steelMember = input.steelMember.data
+    .filter((o) => o.structureMember < 2)
+    .map((o) => ({
+      name: o.memberPartName,
+      point: [
+        new Point(o.startX * r, o.startY * r, o.startZ * r),
+        new Point(o.endX * r, o.endY * r, o.endZ * r),
+      ],
+      type: o.type,
+      section: o.section,
+      typeCategory: o.typeCategory,
+      width: o.steelWidth * r,
+      height: o.steelDepth * r,
+      angle: o.angle,
+    }));
   let pipeLine = input.pipeLine.data.map((o) => {
     let out = {
       name: o.partDescription,
