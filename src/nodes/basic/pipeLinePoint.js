@@ -200,6 +200,7 @@ export function gen3DGroup(conections, components, runToRuns = []) {
     let segment = [id];
     let currentID = id;
     let nextID = "none";
+    //분기나 엔드가 나올때까지 다음 노드를 찾아서 반복수행
     while (![...endID, ...branchID].includes(nextID)) {
       let adj = partDict[currentID].adjacent;
       for (let i = 0; i < adj.length; i++) {
@@ -248,6 +249,7 @@ export function gen3DGroup(conections, components, runToRuns = []) {
   let group = [];
   let maxIter = endList.length;
   let iter = 0;
+  //각각의 세그먼트를 연결관계를 통해 클러스터링, 단부 분기가 모두 없어질 때까지 수행
   while (endList.length > 0 && iter < maxIter) {
     let ids = [endList[0][0], endList[0][endList[0].length - 1]];
     let subGroup = { end: [], mid: [] };
@@ -283,10 +285,11 @@ export function gen3DGroup(conections, components, runToRuns = []) {
         endList.splice(i, 1);
       }
     }
+    //subGroup에 할당된 라인 이름을 lines에 할당
     if (subGroup.end.length + subGroup.mid.length > 0) {
       subGroup["lines"] = [];
       for (let seg of subGroup.end) {
-        for (let id of seg.slice(1)) {
+        for (let id of seg.slice(1)) { //단부의 equipment의 경우 runOID가 null임, 단부가 다른 runOID로 정의되는 경우 예외처리
           let LineName = runDict[partDict[id].runOID].lineName;
           if (!subGroup["lines"].includes(LineName)) {
             subGroup["lines"].push(LineName);

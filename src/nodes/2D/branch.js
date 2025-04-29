@@ -13,10 +13,17 @@ export function genLine(group) {
   // let group = pointData.group2d;
   let graphData = [];
   let partDict = group.partDict;
-  for (let branch of group.group) {
+  //lineData = {대표라인이름, 라인객체배열 : {
+  // lineName,
+  // mainNodes,
+  // subNodesList,
+  // nodes: lineDict[lineName],
+  // relations}
+  // , 세대관계, 연결노드 배열}
+  for (let segmentCluster of group.group) {
     let nodeDict = {};
     let connections = [];
-    for (let seg of [...branch.mid, ...branch.end]) {
+    for (let seg of [...segmentCluster.mid, ...segmentCluster.end]) {
       connections.push([seg[0], seg[seg.length - 1]]);
       for (let i of [0, seg.length - 1]) {
         let id = seg[i];
@@ -65,9 +72,7 @@ export function genLine(group) {
       let subNodesList = [];
       //시작점은 End로 구성함 만약 시작점이 없는 경우 임의점으로 시작
       //1차 필터링
-      let start = lineDict[lineName].filter(
-        (n) => n.type === "E"
-      );
+      let start = lineDict[lineName].filter((n) => n.type === "E");
       //2차 필터링, 미포함 언어
       if (start.length > 1) {
         let start2 = start.filter(
@@ -95,7 +100,6 @@ export function genLine(group) {
         let iter = 0;
         let maxIter = nodes.length;
         mainNodes.push(cur);
-        
 
         while (iter < maxIter) {
           let adj = cur.adjacent ?? [];
@@ -300,7 +304,7 @@ export function drawGraph(lineObj) {
       if (parentOfSubNode) {
         dx = nodeDict[parentOfSubNode.id].point.x;
       }
-      dx += l*0.4;
+      dx += l * 0.4;
       nodeDict[subNode0.id] = {
         ...subNode0,
         point: new Point(dx, dy),
