@@ -22,6 +22,7 @@ import { userMaterials } from "./material";
 export function staadModel(pointData) {
   let model = [];
   let mesh = [];
+  let initPoint = new Point(0, 0, 0);
   // let aquaLine = new THREE.LineBasicMaterial({ color: 0x00ffff });
   for (let a of pointData.steelMember) {
     let h = a.height;
@@ -61,6 +62,7 @@ export function staadModel(pointData) {
       })
     );
   }
+
   let pipe = ["PIPE", "NaN", "T", "LAT", "LRB", "TRB", "REDC", "REDE"];
   let flange = ["FBLD", "FRSW", "FOWN", "FSW", "FTHD", "FWN"];
   let valve = ["BALL", "BFYLP", "GAT", "GLO", "PLU"];
@@ -74,9 +76,7 @@ export function staadModel(pointData) {
   let flatItem = [];
   let refs = []; //refPoint집합
   let instrument = [];
-  let supports = [];
   let pipeComp = [];
-  let initPoint = new Point(0, 0, 0);
   for (let o of pointData.pipeLine) {
     let partName = o.lineName;
     let keyName = o.type;
@@ -620,6 +620,30 @@ export function staadModel(pointData) {
       console.log("Error", o);
     }
   }
+  let pipeByLine = pipeComp.reduce((acc, cur) => {
+    (acc[cur.meta.part] = acc[cur.meta.part] || []).push(cur);
+    return acc;
+  }, {});
+  for (let part in pipeByLine) {
+    let pipeByName = pipeByLine[part].reduce((acc, cur) => {
+      (acc[cur.meta.key] = acc[cur.meta.key] || []).push(cur);
+      return acc;
+    }, {});
+    for (let key in pipeByName) {
+      let geos = pipeByName[key].map((o) => o.threeFunc(initPoint));
+      let matColor = pipeByName[key][0].meta.material;
+      let geo = BufferGeometryUtils.mergeGeometries(geos);
+      let pipeMesh = new THREE.Mesh(geo, userMaterials[matColor]);
+      pipeMesh["userData"] = {
+        name: "pipeLine",
+        part: part,
+        key: key,
+      };
+      mesh.push(pipeMesh);
+    }
+  }
+
+  let supports = [];
   for (let a of pointData.support) {
     let p = a.point;
     if (
@@ -670,33 +694,10 @@ export function staadModel(pointData) {
         part: part,
         key: key,
       };
-      mesh.push(supportMesh)
+      mesh.push(supportMesh);
     }
-    
   }
 
-  let pipeByLine = pipeComp.reduce((acc, cur) => {
-    (acc[cur.meta.part] = acc[cur.meta.part] || []).push(cur);
-    return acc;
-  }, {});
-  for (let part in pipeByLine) {
-    let pipeByName = pipeByLine[part].reduce((acc, cur) => {
-      (acc[cur.meta.key] = acc[cur.meta.key] || []).push(cur);
-      return acc;
-    }, {});
-    for (let key in pipeByName) {
-      let geos = pipeByName[key].map((o) => o.threeFunc(initPoint));
-      let matColor = pipeByName[key][0].meta.material;
-      let geo = BufferGeometryUtils.mergeGeometries(geos);
-      let pipeMesh = new THREE.Mesh(geo, userMaterials[matColor]);
-      pipeMesh["userData"] = {
-        name: "pipeLine",
-        part: part,
-        key: key,
-      };
-      mesh.push(pipeMesh)
-    }
-  }
   return { model, mesh };
 }
 
