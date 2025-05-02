@@ -314,6 +314,7 @@ export function gen2DGroup(pidConnection) {
         PartType: p1.ItemName, //OPC인 경우
         RunName: String(p1.ItemTag).includes('"') ? p1.ItemTag : p1.LineName,
         runNumber: runNumber,
+        index: i,
       },
       part2: {
         PartOID: opcDict[p2.ItemTag] ? opcDict[p2.ItemTag][0] : p2.ItemSPID,
@@ -324,6 +325,7 @@ export function gen2DGroup(pidConnection) {
         PartType: p2.ItemName,
         RunName: String(p2.ItemTag).includes('"') ? p2.ItemTag : p2.LineName,
         runNumber: runNumber,
+        index: i + 1,
       },
     });
   }

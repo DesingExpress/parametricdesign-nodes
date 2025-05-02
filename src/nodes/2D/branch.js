@@ -1,8 +1,6 @@
 import {
   Circle,
-  DimStyle,
   GetPointBasedLength,
-  GetPointBasedRatio,
   Line,
   Point,
   RotateTrans2D,
@@ -31,7 +29,7 @@ export function draw2D3DCompare(pointData) {
     cy -= dy;
   }
   cy = 0;
-  cx = 100 * fontSize;
+  cx = 150 * fontSize;
   for (let lineObj of graphData3d) {
     let subDraw = drawGraph(lineObj);
     draw.push(...RotateTrans2D(subDraw, new Point(0, 0), cx, cy, 0, 1));
@@ -56,22 +54,13 @@ export function drawGraph(lineObj) {
     let line = lineList[i];
     let dx = 0;
     let dy = 0;
-    if (i > 0) {
-      line.mainNodes.reverse();
-    }
-    let node0 = line.mainNodes[0];
-    nodeDict[node0.id] = {
-      ...node0,
-      point: new Point(dx, dy),
-    };
-    for (let j = 1; j < line.mainNodes.length; j++) {
-      let node1 = line.mainNodes[j - 1];
+    for (let j = 0; j < line.mainNodes.length; j++) {
       let node = line.mainNodes[j];
-      dx += l * (node.type === "B" && node1.type === "B" ? 1.6 : 1);
       nodeDict[node.id] = {
         ...node,
         point: new Point(dx, dy),
       };
+      dx += l * 1.6;
     }
     for (let s = 0; s < line.subNodesList.length; s++) {
       dy -= (s + 1) * l * 1.5;
@@ -85,25 +74,19 @@ export function drawGraph(lineObj) {
         dx = nodeDict[parentOfSubNode.id].point.x;
       }
       dx += l * 0.4;
-      nodeDict[subNode0.id] = {
-        ...subNode0,
-        point: new Point(dx, dy),
-      };
-      for (let j = 1; j < subNodes.length; j++) {
-        let node1 = subNodes[j - 1];
+      for (let j = 0; j < subNodes.length; j++) {
         let node = subNodes[j];
-        dx += l * (node.type === "B" && node1.type === "B" ? 2.5 : 1);
         nodeDict[node.id] = {
           ...node,
           point: new Point(dx, dy),
         };
+        dx += l * 1.6;
       }
     }
-
-    let endids = line.nodes.filter((n) => n.type === "E").map((n) => n.id);
+    let endids = line.nodes.filter((n) => n.nodeType === "E").map((n) => n.id);
     for (let j = 0; j < line.nodes.length; j++) {
       let node = line.nodes[j];
-      if (node.type === "B" && nodeDict[node.id]) {
+      if (node.nodeType === "B" && nodeDict[node.id]) {
         let endNodes = [];
         let pt = nodeDict[node.id].point;
         for (let id of node.adjacent) {
@@ -155,6 +138,7 @@ export function drawGraph(lineObj) {
           break;
         }
       }
+      //모든 노드 중심점 이동
       for (let node of line.nodes) {
         if (nodeDict[node.id]) {
           nodeDict[node.id].point = new Point(
@@ -187,7 +171,7 @@ export function drawGraph(lineObj) {
         let pt3 = new Point(pt.x + r, pt.y + r);
         draw.push(new Circle(node.point, r, "RED", 32));
         draw.push(
-          new Text(pt, String(node.type), fontSize, 0, "center", "YELLOW")
+          new Text(pt, String(node.nodeType), fontSize, 0, "center", "YELLOW")
         );
         // if (node.type === "E") {
         draw.push(
@@ -239,20 +223,19 @@ export function genLine(group) {
         let id = seg[i];
         let aid = i === 0 ? seg[seg.length - 1] : seg[0];
         if (!endNodeDict[id]) {
-          let type =
+          let nodeType =
             partDict[id].adjacent.length > 2
               ? "B"
               : partDict[id].adjacent.length < 2
               ? "E"
               : "M";
           endNodeDict[id] = {
+            ...partDict[id],
             id,
-            type,
-            line: type === "E" ? partDict[aid].lineName : partDict[id].lineName,
+            nodeType,
             adjacent: [aid],
-            name: partDict[id].name,
-            run: partDict[id].runName,
-            partType: partDict[id].type,
+            line:
+              nodeType === "E" ? partDict[aid].lineName : partDict[id].lineName,
           };
         } else {
           if (!endNodeDict[id].adjacent.includes(aid)) {
@@ -285,18 +268,131 @@ export function genLine(group) {
         for (let aid of node.adjacent) {
           if (endNodeDict[aid].line !== lineName) {
             relations.push({
-              parentID: node.id,
-              childrenID: aid,
+              parentID: node.id, //각각 포트번호가 명시되어야 함
+              childrenID: aid, //각각 포트번호 명시 필요
               line: endNodeDict[aid].line,
             });
           }
         }
       }
+      //mainNodes를 확장
+      //3개 초과 이웃을 가진 B 노드 복재
+      let nodes = [...lineDict[lineName]];
+      let ids = nodes.map((n) => n.id); //동일라인 내에 있는 객체
+      let newMainNodes = [];
+      //메인노드와 서브노드는 모두 브랜치로만 구성되어 있으며, 브랜치는 자식노드의 개수만큼의 포트를 3개이상 보유하고 있음
+      //모든 브랜치 노드는 포트별로 ID를 새로 구성하는 connections 정보를 갱신해야 하며, relation도 마찬가지임
+      //부모노드와 자식노드가 상대적으로 서로 맞물려 있음
+      //포트번호는 메인노드 서브노드 라인별로 구성되며, 포트번호는 시퀀스 순서에 맞추어 생성해야 한다.
+      //3차원의 경우 시점에서부터 공간적 거리로 순차적으로 부여되며, 메인라인/서브라인의 방향에 따라 순서가 정의되어야 한다.
+      //2차원의 경우 별도의 정보가 없지만, 입력항목의 순서(인덱스) 번호가 시퀀스번호와 동일하다고 가정한다.
+      //현재 동일 라인의 시점과 종점 포트에 대한 순서정의 알고리즘이 없음.
+      //console.log(lineName, mainNodes.map(n=>n.adjacent.map(a=>partDict[a].index)))
+
+      for (let j = 0; j < mainNodes.length; j++) {
+        let b = mainNodes[j];
+        let excludeNodes = [];
+        if (j === 0 || j === mainNodes.length - 1) {
+          let adjs = b.adjacent
+            .filter(
+              (id) =>
+                !mainNodes.map((n) => n.id).includes(id) && ids.includes(id)
+            )
+            .sort((a, b) => partDict[a].index - partDict[b].index); //메인노드라인에 단부를 추가하기 위한 함수를 정의해야함
+          if (adjs.length > 0) {
+            excludeNodes.push(...adjs.slice(0, mainNodes.length === 1 ? 2 : 1));
+          }
+        }
+        if (j === 0) {
+          if (excludeNodes.length > 0) {
+            newMainNodes.push(endNodeDict[excludeNodes[0]]);
+          }
+        }
+        newMainNodes.push(b);
+        if (j === mainNodes.length - 1) {
+          if (excludeNodes.length > 0) {
+            let endId =
+              excludeNodes.length > 1 ? excludeNodes[1] : excludeNodes[0];
+            newMainNodes.push(endNodeDict[endId]);
+          }
+        }
+      }
+
+      // for (let j = 0; j < mainNodes.length; j++) {
+      //   let b = mainNodes[j];
+      //   let adjLength = b.adjacent.length;
+      //   let lastID = b.id;
+
+      //   if (j === 0 || j === mainNodes.length - 1) {
+      //     let adjs = b.adjacent.filter(
+      //       (id) =>
+      //         ids.includes(id) &&
+      //         endNodeDict[id].nodeType === "E" &&
+      //         !newMainNodes.map((n) => n.id).includes(id)
+      //     ); //메인노드라인에 단부를 추가하기 위한 함수를 정의해야함
+      //     if (adjs.length > 0) {
+      //       excludeNodes.push(...adjs.slice(0, mainNodes.length === 1 ? 2 : 1));
+      //       if (j === 0) {
+      //         newMainNodes.push(endNodeDict[adjs[0]]);
+      //         connections.push([adjs[0], lastID]);
+      //       }
+      //     }
+      //   }
+      //   let adjRemains = b.adjacent.filter(
+      //     (id) =>
+      //       !excludeNodes.includes(id) &&
+      //       !mainNodes.map((n) => n.id).includes(id)
+      //   );
+      //   if(adjLength<4){
+      //     newMainNodes.push(b);
+      //     connections.push([adjRemains[0], b.id])
+      //   }
+      //   for (let i = 0; i < adjLength - 3; i++) {
+
+      //     let newID = b.id + "@" + String(i);
+      //     connections.push([lastID, newID]);
+      //     if(i===0){
+      //       b.adjacent = [excludeNodes[0], adjRemains[0], newID]
+      //       newMainNodes.push(b);
+      //       connections.push(adjRemains[0], b.id)
+      //     }
+      //     let newNodes = {
+      //       ...b,
+      //       id: newID,
+      //       adjacent: [lastID],
+      //     };
+      //     if (i < adjLength - 4) {
+      //       newNodes.adjacent.push(b.id + "@" + String(i + 1));
+      //     }
+      //     newNodes.adjacent.push(adjRemains[i + 1]);
+      //     connections.push([adjRemains[i + 1], newID]);
+      //     // //본 노드에서는 값을 찾아서 splice를 해야함
+      //     let li = b.adjacent.findIndex((id) => id === adjRemains[i + 1]);
+      //     // b.adjacent.splice(li,1)
+      //     lastID = newID;
+      //     newMainNodes.push(newNodes);
+      //     nodes.push(newNodes);
+      //   }
+      //   if (j < mainNodes.length - 1) {
+      //     let nextID = mainNodes[j + 1].id;
+      //     connections.push([lastID, nextID]);
+      //   }
+      //   if (j === mainNodes.length - 1) {
+      //     if (excludeNodes.length > 0) {
+      //       let endId =
+      //         excludeNodes.length > 1 ? excludeNodes[1] : excludeNodes[0];
+      //       newMainNodes.push(endNodeDict[endId]);
+      //       connections.push([endId, lastID]);
+      //     }
+      //   }
+      // }
+      //E-B, B-B 노드 시퀀스 확장, 2port 주요 컴포넌트 추가 valve, reducer, instrument, blind flange 등
+      //relation 노드이름 갱신
       lineList.push({
         lineName,
-        mainNodes,
+        mainNodes: newMainNodes,
         subNodesList,
-        nodes: lineDict[lineName],
+        nodes,
         relations,
       });
     }
@@ -328,21 +424,21 @@ export function genLine(group) {
 }
 //line별로 구성된 브랜치 노드만을 이용하여 mainNodes, subNodes 배열을 생성
 export function alignNode(originNodes) {
-  let nodes = [...originNodes].filter(o=>o.type === "B");
+  let nodes = [...originNodes].filter((o) => o.nodeType === "B");
   let mainNodes = [];
   let subNodesList = [];
   //시작점은 Branch Node로 구성, 시작점이 없는 경우에는 End만 존재하는 단일 라인임
   //1차 필터링
   let branchCountByRun = nodes.reduce((acc, cur) => {
-    acc[cur.run] = acc[cur.run] || 0;
-    acc[cur.run] += cur.adjacent.length;
+    acc[cur.runName] = acc[cur.runName] || 0;
+    acc[cur.runName] += cur.adjacent.length;
     return acc;
   }, {});
   if (Object.keys(branchCountByRun).length > 0) {
     let mainRun = Object.keys(branchCountByRun).sort(
       (a, b) => branchCountByRun[b] - branchCountByRun[a]
     )[0];
-    let start = nodes.filter((n) => n.run === mainRun);
+    let start = nodes.filter((n) => n.runName === mainRun);
     let startNode = start[0];
     mainNodes.push(startNode);
     let ii = nodes.findIndex((node) => node.id === startNode.id);
@@ -413,7 +509,7 @@ export function alignNode(originNodes) {
 //node filter 함수화
 function nodesFilter(nodes, last) {
   let nextList = nodes.filter((node) => last.adjacent.includes(node.id));
-  let nextList1 = nextList.filter((node) => node.run === last.Run);
+  let nextList1 = nextList.filter((node) => node.runName === last.RunName);
   if (nextList1.length > 0) {
     nextList = nextList1;
   }
