@@ -9,255 +9,35 @@ import {
   Text,
 } from "@nexivil/package-modules";
 
-export function genLine(group) {
-  // let group = pointData.group2d;
-  let graphData = [];
-  let partDict = group.partDict;
-  //lineData = {대표라인이름, 라인객체배열 : {
-  // lineName,
-  // mainNodes,
-  // subNodesList,
-  // nodes: lineDict[lineName],
-  // relations}
-  // , 세대관계, 연결노드 배열}
-  for (let segmentCluster of group.group) {
-    let nodeDict = {};
-    let connections = [];
-    for (let seg of [...segmentCluster.mid, ...segmentCluster.end]) {
-      connections.push([seg[0], seg[seg.length - 1]]);
-      for (let i of [0, seg.length - 1]) {
-        let id = seg[i];
-        let aid = i === 0 ? seg[seg.length - 1] : seg[0];
-        if (!nodeDict[id]) {
-          let type =
-            partDict[id].adjacent.length > 2
-              ? "B"
-              : partDict[id].adjacent.length < 2
-              ? "E"
-              : "M";
-          nodeDict[id] = {
-            id,
-            type,
-            line: type === "E" ? partDict[aid].lineName : partDict[id].lineName,
-            adjacent: [aid],
-            name: partDict[id].name,
-            partType: partDict[id].type,
-          };
-        } else {
-          if (!nodeDict[id].adjacent.includes(aid)) {
-            nodeDict[id].adjacent.push(aid);
-          }
-        }
-      }
-    }
-    let lineDict = {};
-    for (let id in nodeDict) {
-      (lineDict[nodeDict[id].line] = lineDict[nodeDict[id].line] || []).push(
-        nodeDict[id]
-      );
-    }
-    //가장 번호가 낮은 순서로 선조를 정의 향후 객체 생성시 활용
-    let ancientLineNum = Object.keys(lineDict)
-      .map((ln) => ln.split("-").pop())
-      .sort();
-    let representLineName = Object.keys(lineDict).find((a) =>
-      a.includes(ancientLineNum[0])
-    );
-    let lineList = [];
-    for (let lineNum of ancientLineNum) {
-      let lineName = Object.keys(lineDict).find((a) => a.includes(lineNum));
-      let relations = []; //브랜치와 연결된 다른 라인 이름 목록
-      let nodes = [...lineDict[lineName]]; //clone
-      let mainNodes = []; //주라인 노드 목록
-      let subNodesList = [];
-      //시작점은 End로 구성함 만약 시작점이 없는 경우 임의점으로 시작
-      //1차 필터링
-      let start = lineDict[lineName].filter((n) => n.type === "E");
-      //2차 필터링, 미포함 언어
-      if (start.length > 1) {
-        let start2 = start.filter(
-          (n) => !n.partType.includes("Plug") && !n.partType.includes("Branch")
-        );
-        if (start2.length > 0) {
-          start = start2;
-        }
-      }
-      //3차 필터링 포함 언어
-      if (start.length > 1) {
-        let start3 = start.filter(
-          (n) => n.partType.includes("Equip") || n.partType.includes("Nozzle")
-        );
-        if (start3.length > 0) {
-          start = start3;
-        }
-      }
-
-      let endNode = start.length > 0 ? start[0] : lineDict[lineName][0];
-      if (endNode.type === "E") {
-        let cur = endNode;
-        let ii = nodes.findIndex((node) => node.id === cur.id);
-        nodes.splice(ii, 1);
-        let iter = 0;
-        let maxIter = nodes.length;
-        mainNodes.push(cur);
-
-        while (iter < maxIter) {
-          let adj = cur.adjacent ?? [];
-          let nextList = nodes.filter((node) => adj.includes(node.id));
-          for (let i = nodes.length - 1; i > -1; i--) {
-            if (nextList.some((node) => node.id === nodes[i].id)) {
-              // nodes.splice(i, 1);
-            }
-          }
-          //재귀조건으로 자손이 브랜치인 노드를 우선적으로 선별, 만약 엔드노드인 경우 시작 엔드노드 조회방법을 활용해야함
-          let nextList2 = nextList.filter((node) => node.type === "B");
-          if (nextList2.length > 0) {
-            nextList = nextList2;
-          }
-          let nextList3 = nextList.filter((node) =>
-            node.adjacent.some((id) => nodeDict[id].type === "B")
-          );
-          if (nextList3.length > 0) {
-            nextList = nextList3;
-          }
-          //4차필터링 브랜치랑 연결된 노드가 다른 라인에 있는 경우 우선 선별
-          let nextList4 = nextList.filter((node) =>
-            node.adjacent.some((id) => nodeDict[id].line !== lineName)
-          );
-          if (nextList4.length > 0) {
-            nextList = nextList4;
-          }
-          if (nextList.length > 0) {
-            let next = nextList[0]; //우선순위를 선별해서 넣어야 함. 임시로 첫번째 항목을 넣음
-            mainNodes.push(next);
-            let ni = nodes.findIndex((node) => node.id === next.id);
-            nodes.splice(ni, 1);
-            cur = next;
-          } else {
-            //만약 후순위 노드가 없으면 반복문을 중단함
-            break;
-          }
-          iter++;
-        }
-
-        //subNode가 존재하는 판별식
-        let subEndnodes = nodes.filter(
-          (node) =>
-            node.type === "B" &&
-            ![mainNodes, ...subNodesList]
-              .flat()
-              .map((n) => n.id)
-              .includes(node.id)
-        );
-        let iter2 = 0;
-        let maxIter2 = subEndnodes.length;
-        while (subEndnodes.length > 0 && iter2 < maxIter2) {
-          cur = subEndnodes[0];
-          let subNodes = [];
-          let ii = nodes.findIndex((node) => node.id === cur.id);
-          nodes.splice(ii, 1);
-          subNodes.push(cur);
-          //위의 반복문 복붙
-          let iter = 0;
-          while (iter < maxIter) {
-            let adj = cur.adjacent ?? [];
-            let nextList = nodes.filter((node) => adj.includes(node.id));
-            for (let i = nodes.length - 1; i > -1; i--) {
-              if (nextList.some((node) => node.id === nodes[i].id)) {
-                nodes.splice(i, 1);
-              }
-            }
-            //재귀조건으로 자손이 브랜치인 노드를 우선적으로 선별, 만약 엔드노드인 경우 시작 엔드노드 조회방법을 활용해야함
-            let nextList2 = nextList.filter((node) => node.type === "B");
-            if (nextList2.length > 0) {
-              nextList = nextList2;
-            }
-            let nextList3 = nextList.filter((node) =>
-              node.adjacent.some((id) => nodeDict[id].type === "B")
-            );
-            if (nextList3.length > 0) {
-              nextList = nextList3;
-            }
-            //4차필터링 브랜치랑 연결된 노드가 다른 라인에 있는 경우 우선 선별
-            let nextList4 = nextList.filter((node) =>
-              node.adjacent.some((id) => nodeDict[id].line !== lineName)
-            );
-            if (nextList4.length > 0) {
-              nextList = nextList4;
-            }
-            if (nextList.length > 0) {
-              let next = nextList[0]; //우선순위를 선별해서 넣어야 함. 임시로 첫번째 항목을 넣음
-              subNodes.push(next);
-              let ni = nodes.findIndex((node) => node.id === next.id);
-              nodes.splice(ni, 1);
-              cur = next;
-            } else {
-              //만약 후순위 노드가 없으면 반복문을 중단함
-              break;
-            }
-            iter++;
-          }
-          subNodesList.push(subNodes);
-          //
-          subEndnodes = lineDict[lineName].filter(
-            (node) =>
-              node.type === "B" &&
-              ![mainNodes, ...subNodesList]
-                .flat()
-                .map((n) => n.id)
-                .includes(node.id)
-          );
-          iter2++;
-        }
-        //만약 branch노드가 남아있을 경우 mainNodes가 정의되는 방식으로 브랜치로 갈라져나오는 subNodes를 정의
-      } else {
-        //현재는 모든 라인 케이스가 엔드노드(type ==="E")를 포함하고 있어서 고려하지 않음
-      }
-      //다른 라인간의 연결 관계를 정의
-      for (let node of lineDict[lineName]) {
-        for (let aid of node.adjacent) {
-          if (nodeDict[aid].line !== lineName) {
-            relations.push({
-              parentID: node.id,
-              childrenID: aid,
-              line: nodeDict[aid].line,
-            });
-          }
-        }
-      }
-      lineList.push({
-        lineName,
-        mainNodes,
-        subNodesList,
-        nodes: lineDict[lineName],
-        relations,
-      });
-    }
-    //드로잉 순서를 정하기 위한 세대 배열 생성
-    let generation = [[representLineName]]; //1세대
-    let lineNameList = lineList.slice(1).map((l) => l.lineName); //첫번째를 리스트를 제거 후 목록
-    let iter = 0;
-    let maxIter = lineNameList.length;
-    while (lineNameList.length > 0 && iter < maxIter) {
-      let sub = [];
-      for (let lineName of generation[generation.length - 1]) {
-        let line = lineList.find((a) => a.lineName === lineName);
-        for (let rel of line.relations) {
-          let ri = lineNameList.findIndex((a) => a === rel.line);
-          if (ri > -1) {
-            sub.push(rel.line);
-            lineNameList.splice(ri, 1);
-          }
-        }
-      }
-      if (sub.length > 0) {
-        generation.push(sub.sort());
-      }
-      iter++;
-    }
-    graphData.push({ representLineName, lineList, generation, connections });
+export function draw2D3DCompare(pointData) {
+  let draw = [];
+  const scale = 10;
+  const fontSize = scale * 2.5;
+  // const style = new DimStyle("dimstyle1", scale, 3, { DIMADEC: 1 });
+  const group2D = pointData.group2d;
+  const group3D = pointData.group3d;
+  // const partDict3D = group3D.partDict;
+  // const partDict2D = group2D.partDict;
+  let cy = 0;
+  let dy = 50 * fontSize;
+  let cx = 0;
+  let graphData2d = genLine(group2D);
+  let graphData3d = genLine(group3D);
+  console.log("2d", graphData2d);
+  console.log("3d", graphData3d);
+  for (let lineObj of graphData2d) {
+    let subDraw = drawGraph(lineObj);
+    draw.push(...RotateTrans2D(subDraw, new Point(0, 0), cx, cy, 0, 1));
+    cy -= dy;
   }
-  return graphData;
+  cy = 0;
+  cx = 100 * fontSize;
+  for (let lineObj of graphData3d) {
+    let subDraw = drawGraph(lineObj);
+    draw.push(...RotateTrans2D(subDraw, new Point(0, 0), cx, cy, 0, 1));
+    cy -= dy;
+  }
+  return draw;
 }
 
 export function drawGraph(lineObj) {
@@ -409,16 +189,16 @@ export function drawGraph(lineObj) {
         draw.push(
           new Text(pt, String(node.type), fontSize, 0, "center", "YELLOW")
         );
-        if (node.type === "E") {
-          draw.push(
-            new Text(pt2, String(node.name), fontSize / 2, 0, "left", "YELLOW")
-          );
-        }
+        // if (node.type === "E") {
+        draw.push(
+          new Text(pt2, String(node.name), fontSize / 3, 0, "left", "YELLOW")
+        );
+        // }
         draw.push(
           new Text(
             pt3,
             String(node.partType),
-            fontSize / 2,
+            fontSize / 3,
             0,
             "left",
             "YELLOW"
@@ -440,33 +220,206 @@ export function drawGraph(lineObj) {
   return draw;
 }
 
-export function draw2D3DCompare(pointData) {
-  let draw = [];
-  const scale = 10;
-  const fontSize = scale * 2.5;
-  // const style = new DimStyle("dimstyle1", scale, 3, { DIMADEC: 1 });
-  const group2D = pointData.group2d;
-  const group3D = pointData.group3d;
-  // const partDict3D = group3D.partDict;
-  // const partDict2D = group2D.partDict;
-  let cy = 0;
-  let dy = 50 * fontSize;
-  let cx = 0;
-  let graphData2d = genLine(group2D);
-  let graphData3d = genLine(group3D);
-  console.log("2d", graphData2d);
-  console.log("3d", graphData3d);
-  for (let lineObj of graphData2d) {
-    let subDraw = drawGraph(lineObj);
-    draw.push(...RotateTrans2D(subDraw, new Point(0, 0), cx, cy, 0, 1));
-    cy -= dy;
+export function genLine(group) {
+  let graphData = [];
+  let partDict = group.partDict;
+  //lineData = {대표라인이름, 라인객체배열 : {
+  // lineName,
+  // mainNodes,
+  // subNodesList,
+  // nodes: lineDict[lineName],
+  // relations}
+  // , 세대관계, 연결노드 배열}
+  for (let segment of group.cluster) {
+    let endNodeDict = {};
+    let connections = [];
+    for (let seg of [...segment.mid, ...segment.end]) {
+      connections.push([seg[0], seg[seg.length - 1]]);
+      for (let i of [0, seg.length - 1]) {
+        let id = seg[i];
+        let aid = i === 0 ? seg[seg.length - 1] : seg[0];
+        if (!endNodeDict[id]) {
+          let type =
+            partDict[id].adjacent.length > 2
+              ? "B"
+              : partDict[id].adjacent.length < 2
+              ? "E"
+              : "M";
+          endNodeDict[id] = {
+            id,
+            type,
+            line: type === "E" ? partDict[aid].lineName : partDict[id].lineName,
+            adjacent: [aid],
+            name: partDict[id].name,
+            run: partDict[id].runName,
+            partType: partDict[id].type,
+          };
+        } else {
+          if (!endNodeDict[id].adjacent.includes(aid)) {
+            endNodeDict[id].adjacent.push(aid);
+          }
+        }
+      }
+    }
+    let lineDict = {};
+    for (let id in endNodeDict) {
+      (lineDict[endNodeDict[id].line] =
+        lineDict[endNodeDict[id].line] || []).push(endNodeDict[id]);
+    }
+    //가장 번호가 낮은 순서로 선조를 정의 향후 객체 생성시 활용
+    let ancientLineNum = Object.keys(lineDict)
+      .map((ln) => ln.split("-").pop())
+      .sort();
+    let representLineName = Object.keys(lineDict).find((a) =>
+      a.includes(ancientLineNum[0])
+    );
+    let lineList = [];
+    for (let lineNum of ancientLineNum) {
+      let lineName = Object.keys(lineDict).find((a) => a.includes(lineNum));
+      let relations = []; //브랜치와 연결된 다른 라인 이름 목록
+      let align = alignNode(lineDict[lineName]);
+      let mainNodes = align.mainNodes; //주라인 노드 목록
+      let subNodesList = align.subNodesList;
+      //다른 라인간의 연결 관계를 정의
+      for (let node of lineDict[lineName]) {
+        for (let aid of node.adjacent) {
+          if (endNodeDict[aid].line !== lineName) {
+            relations.push({
+              parentID: node.id,
+              childrenID: aid,
+              line: endNodeDict[aid].line,
+            });
+          }
+        }
+      }
+      lineList.push({
+        lineName,
+        mainNodes,
+        subNodesList,
+        nodes: lineDict[lineName],
+        relations,
+      });
+    }
+    //드로잉 순서를 정하기 위한 세대 배열 생성
+    let generation = [[representLineName]]; //1세대
+    let lineNameList = lineList.slice(1).map((l) => l.lineName); //첫번째를 리스트를 제거 후 목록
+    let iter = 0;
+    let maxIter = lineNameList.length;
+    while (lineNameList.length > 0 && iter < maxIter) {
+      let sub = [];
+      for (let lineName of generation[generation.length - 1]) {
+        let line = lineList.find((a) => a.lineName === lineName);
+        for (let rel of line.relations) {
+          let ri = lineNameList.findIndex((a) => a === rel.line);
+          if (ri > -1) {
+            sub.push(rel.line);
+            lineNameList.splice(ri, 1);
+          }
+        }
+      }
+      if (sub.length > 0) {
+        generation.push(sub.sort());
+      }
+      iter++;
+    }
+    graphData.push({ representLineName, lineList, generation, connections });
   }
-  cy = 0;
-  cx = 100 * fontSize;
-  for (let lineObj of graphData3d) {
-    let subDraw = drawGraph(lineObj);
-    draw.push(...RotateTrans2D(subDraw, new Point(0, 0), cx, cy, 0, 1));
-    cy -= dy;
+  return graphData;
+}
+//line별로 구성된 브랜치 노드만을 이용하여 mainNodes, subNodes 배열을 생성
+export function alignNode(originNodes) {
+  let nodes = [...originNodes].filter(o=>o.type === "B");
+  let mainNodes = [];
+  let subNodesList = [];
+  //시작점은 Branch Node로 구성, 시작점이 없는 경우에는 End만 존재하는 단일 라인임
+  //1차 필터링
+  let branchCountByRun = nodes.reduce((acc, cur) => {
+    acc[cur.run] = acc[cur.run] || 0;
+    acc[cur.run] += cur.adjacent.length;
+    return acc;
+  }, {});
+  if (Object.keys(branchCountByRun).length > 0) {
+    let mainRun = Object.keys(branchCountByRun).sort(
+      (a, b) => branchCountByRun[b] - branchCountByRun[a]
+    )[0];
+    let start = nodes.filter((n) => n.run === mainRun);
+    let startNode = start[0];
+    mainNodes.push(startNode);
+    let ii = nodes.findIndex((node) => node.id === startNode.id);
+    nodes.splice(ii, 1);
+    let iter = 0;
+    let maxIter = nodes.length;
+    while (iter < maxIter) {
+      let first = mainNodes[0];
+      let last = mainNodes[mainNodes.length - 1];
+      let before = mainNodes.length > 1 ? nodesFilter(nodes, first) : null; //선행노드 검색 필터 함수 사용
+      let next = nodesFilter(nodes, last); //후행노드 검색 필터 함수 사용
+      if (before || next) {
+        if (before) {
+          mainNodes.unshift(before);
+          let ni = nodes.findIndex((node) => node.id === before.id);
+          nodes.splice(ni, 1);
+        }
+        if (next) {
+          mainNodes.push(next);
+          let ni = nodes.findIndex((node) => node.id === next.id);
+          nodes.splice(ni, 1);
+        }
+      } else {
+        //만약 후순위 노드가 없으면 반복문을 중단함
+        break;
+      }
+      iter++;
+    }
+    //subNode가 존재하는 판별식
+    let iter2 = 0;
+    let maxIter2 = nodes.length;
+    while (nodes.length > 0 && iter2 < maxIter2) {
+      let cur = nodes[0];
+      let subNodes = [cur];
+      let ii = nodes.findIndex((node) => node.id === cur.id);
+      nodes.splice(ii, 1);
+      let iter = 0;
+      let maxIter3 = nodes.length;
+      while (iter < maxIter3) {
+        let first = subNodes[0];
+        let last = subNodes[subNodes.length - 1];
+        let before = subNodes.length > 1 ? nodesFilter(nodes, first) : null; //선행노드 검색 필터 함수 사용
+        let next = nodesFilter(nodes, last); //후행노드 검색 필터 함수 사용
+        if (before || next) {
+          if (before) {
+            subNodes.unshift(before);
+            let ni = nodes.findIndex((node) => node.id === before.id);
+            nodes.splice(ni, 1);
+          }
+          if (next) {
+            subNodes.push(next);
+            let ni = nodes.findIndex((node) => node.id === next.id);
+            nodes.splice(ni, 1);
+          }
+        } else {
+          //만약 후순위 노드가 없으면 반복문을 중단함
+          break;
+        }
+        iter++;
+      }
+      subNodesList.push(subNodes);
+      iter2++;
+    }
   }
-  return draw;
+  return { mainNodes, subNodesList };
+}
+
+//node filter 함수화
+function nodesFilter(nodes, last) {
+  let nextList = nodes.filter((node) => last.adjacent.includes(node.id));
+  let nextList1 = nextList.filter((node) => node.run === last.Run);
+  if (nextList1.length > 0) {
+    nextList = nextList1;
+  }
+  if (nextList.length > 0) {
+    return nextList[0];
+  } else {
+    return null;
+  }
 }

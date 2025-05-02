@@ -342,3 +342,152 @@
 //   }
 //   return draw;
 // }
+
+export function alignNodeLegacy(originNodes, endNodeDict, lineName) {
+  let nodes = [...originNodes];
+  let mainNodes = [];
+  let subNodesList = [];
+  //시작점은 End로 구성함 만약 시작점이 없는 경우 임의점으로 시작
+  //1차 필터링
+  let start = nodes.filter((n) => n.type === "E");
+  //2차 필터링, 미포함 언어
+  if (start.length > 1) {
+    let start2 = start.filter(
+      (n) => !n.partType.includes("Plug") && !n.partType.includes("Branch")
+    );
+    if (start2.length > 0) {
+      start = start2;
+    }
+  }
+  //3차 필터링 포함 언어
+  if (start.length > 1) {
+    let start3 = start.filter(
+      (n) => n.partType.includes("Equip") || n.partType.includes("Nozzle")
+    );
+    if (start3.length > 0) {
+      start = start3;
+    }
+  }
+  let endNode = start[0] ?? originNodes[0];
+  if (endNode.type === "E") {
+    let cur = endNode;
+    let ii = nodes.findIndex((node) => node.id === cur.id);
+    nodes.splice(ii, 1);
+    let iter = 0;
+    let maxIter = nodes.length;
+    mainNodes.push(cur);
+
+    while (iter < maxIter) {
+      let adj = cur.adjacent ?? [];
+      let nextList = nodes.filter((node) => adj.includes(node.id));
+      for (let i = nodes.length - 1; i > -1; i--) {
+        if (nextList.some((node) => node.id === nodes[i].id)) {
+          // nodes.splice(i, 1);
+        }
+      }
+      //재귀조건으로 자손이 브랜치인 노드를 우선적으로 선별, 만약 엔드노드인 경우 시작 엔드노드 조회방법을 활용해야함
+      let nextList2 = nextList.filter((node) => node.type === "B");
+      if (nextList2.length > 0) {
+        nextList = nextList2;
+      }
+      let nextList3 = nextList.filter((node) =>
+        node.adjacent.some((id) => endNodeDict[id].type === "B")
+      );
+      if (nextList3.length > 0) {
+        nextList = nextList3;
+      }
+      //4차필터링 브랜치랑 연결된 노드가 다른 라인에 있는 경우 우선 선별
+      let nextList4 = nextList.filter((node) =>
+        node.adjacent.some((id) => endNodeDict[id].line !== lineName)
+      );
+      if (nextList4.length > 0) {
+        nextList = nextList4;
+      }
+      if (nextList.length > 0) {
+        let next = nextList[0]; //우선순위를 선별해서 넣어야 함. 임시로 첫번째 항목을 넣음
+        mainNodes.push(next);
+        let ni = nodes.findIndex((node) => node.id === next.id);
+        nodes.splice(ni, 1);
+        cur = next;
+      } else {
+        //만약 후순위 노드가 없으면 반복문을 중단함
+        break;
+      }
+      iter++;
+    }
+
+    //subNode가 존재하는 판별식
+    let subEndnodes = nodes.filter(
+      (node) =>
+        node.type === "B" &&
+        ![mainNodes, ...subNodesList]
+          .flat()
+          .map((n) => n.id)
+          .includes(node.id)
+    );
+    let iter2 = 0;
+    let maxIter2 = subEndnodes.length;
+    while (subEndnodes.length > 0 && iter2 < maxIter2) {
+      cur = subEndnodes[0];
+      let subNodes = [];
+      let ii = nodes.findIndex((node) => node.id === cur.id);
+      nodes.splice(ii, 1);
+      subNodes.push(cur);
+      //위의 반복문 복붙
+      let iter = 0;
+      while (iter < maxIter) {
+        let adj = cur.adjacent ?? [];
+        let nextList = nodes.filter((node) => adj.includes(node.id));
+        for (let i = nodes.length - 1; i > -1; i--) {
+          if (nextList.some((node) => node.id === nodes[i].id)) {
+            nodes.splice(i, 1);
+          }
+        }
+        //재귀조건으로 자손이 브랜치인 노드를 우선적으로 선별, 만약 엔드노드인 경우 시작 엔드노드 조회방법을 활용해야함
+        let nextList2 = nextList.filter((node) => node.type === "B");
+        if (nextList2.length > 0) {
+          nextList = nextList2;
+        }
+        let nextList3 = nextList.filter((node) =>
+          node.adjacent.some((id) => endNodeDict[id].type === "B")
+        );
+        if (nextList3.length > 0) {
+          nextList = nextList3;
+        }
+        //4차필터링 브랜치랑 연결된 노드가 다른 라인에 있는 경우 우선 선별
+        let nextList4 = nextList.filter((node) =>
+          node.adjacent.some((id) => endNodeDict[id].line !== lineName)
+        );
+        if (nextList4.length > 0) {
+          nextList = nextList4;
+        }
+        if (nextList.length > 0) {
+          let next = nextList[0]; //우선순위를 선별해서 넣어야 함. 임시로 첫번째 항목을 넣음
+          subNodes.push(next);
+          let ni = nodes.findIndex((node) => node.id === next.id);
+          nodes.splice(ni, 1);
+          cur = next;
+        } else {
+          //만약 후순위 노드가 없으면 반복문을 중단함
+          break;
+        }
+        iter++;
+      }
+      subNodesList.push(subNodes);
+      //while용
+      subEndnodes = originNodes.filter(
+        (node) =>
+          node.type === "B" &&
+          ![mainNodes, ...subNodesList]
+            .flat()
+            .map((n) => n.id)
+            .includes(node.id)
+      );
+      iter2++;
+    }
+    //만약 branch노드가 남아있을 경우 mainNodes가 정의되는 방식으로 브랜치로 갈라져나오는 subNodes를 정의
+  } else {
+    //현재는 모든 라인 케이스가 엔드노드(type ==="E")를 포함하고 있어서 고려하지 않음
+  }
+  return { mainNodes, subNodesList };
+}

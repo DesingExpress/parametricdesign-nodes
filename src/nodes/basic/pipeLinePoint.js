@@ -122,38 +122,7 @@ export function gen3DGroup(conections, components, runToRuns = []) {
     let p2 = c.part2.PartOID;
     let comp1 = components.find((o) => o.PartOID === p1);
     let comp2 = components.find((o) => o.PartOID === p2);
-    // //타입 검증 코드
-    // if (
-    //   comp1 &&
-    //   comp1.point.x === c.point.x &&
-    //   comp1.point.y === c.point.y &&
-    //   comp1.point.z === c.point.z
-    // ) {
-    //   pType[c.part1.PartType] = "";
-    // }
-    // if (
-    //   comp2 &&
-    //   comp2.point.x === c.point.x &&
-    //   comp2.point.y === c.point.y &&
-    //   comp2.point.z === c.point.z
-    // ) {
-    //   pType[c.part2.PartType] = "";
-    // }
-    // if (comp1 && comp2 && c.part1.RunOID !== c.part2.RunOID) {
-    //   branchPoint.push({
-    //     a: c.part1.PartType,
-    //     b: c.part2.PartType,
-    //     c:
-    //       comp1.point.x === c.point.x &&
-    //       comp1.point.y === c.point.y &&
-    //       comp1.point.z === c.point.z,
-    //     d:
-    //       comp2.point.x === c.point.x &&
-    //       comp2.point.y === c.point.y &&
-    //       comp2.point.z === c.point.z,
-    //   });
-    // }
-    // //검증코드 끝
+
     if (!partDict[p1]) {
       partDict[p1] = {
         name: c.part1.PartName,
@@ -187,13 +156,10 @@ export function gen3DGroup(conections, components, runToRuns = []) {
   }
   // console.log("check", branchPoint);
   // console.log("check", pType); //기준위치와 커넥션위치가 같은 부재
-  
-  let endID = Object.keys(partDict).filter(
-    (id) => partDict[id].adjacent.length < 2
-  );
-  let branchID = Object.keys(partDict).filter(
-    (id) => partDict[id].adjacent.length > 2
-  );
+  let nodes = Object.keys(partDict);
+  let endID = nodes.filter((id) => partDict[id].adjacent.length < 2);
+  let branchID = nodes.filter((id) => partDict[id].adjacent.length > 2);
+  //중간에 장비를 통해 브랜치가 되는 경우 라인네임이 NULL이며 서로다른 run으로 연결됨
   //segment : branch의 끝단에서부터 분기점까지의 세그먼트 + 분기점에서 시작해서 분기점으로 끝나는 세그먼트
   let endList = []; //endBranchList;
   for (let id of endID) {
@@ -246,13 +212,13 @@ export function gen3DGroup(conections, components, runToRuns = []) {
       }
     }
   }
-  let group = [];
+  let cluster = [];
   let maxIter = endList.length;
   let iter = 0;
   //각각의 세그먼트를 연결관계를 통해 클러스터링, 단부 분기가 모두 없어질 때까지 수행
   while (endList.length > 0 && iter < maxIter) {
     let ids = [endList[0][0], endList[0][endList[0].length - 1]];
-    let subGroup = { end: [], mid: [] };
+    let segments = { end: [], mid: [] };
     let iter2 = 0;
     let maxIter2 = midList.length;
     while (
@@ -261,7 +227,7 @@ export function gen3DGroup(conections, components, runToRuns = []) {
     ) {
       for (let i = midList.length - 1; i > -1; i--) {
         if (ids.some((id) => midList[i].includes(id))) {
-          subGroup.mid.push(midList[i]);
+          segments.mid.push(midList[i]);
           if (!ids.includes(midList[i][0])) {
             ids.push(midList[i][0]);
           }
@@ -275,7 +241,7 @@ export function gen3DGroup(conections, components, runToRuns = []) {
     }
     for (let i = endList.length - 1; i > -1; i--) {
       if (ids.some((id) => endList[i].includes(id))) {
-        subGroup.end.push(endList[i]);
+        segments.end.push(endList[i]);
         if (!ids.includes(endList[i][0])) {
           ids.push(endList[i][0]);
         }
@@ -286,34 +252,36 @@ export function gen3DGroup(conections, components, runToRuns = []) {
       }
     }
     //subGroup에 할당된 라인 이름을 lines에 할당
-    if (subGroup.end.length + subGroup.mid.length > 0) {
-      subGroup["lines"] = [];
-      for (let seg of subGroup.end) {
-        for (let id of seg.slice(1)) { //단부의 equipment의 경우 runOID가 null임, 단부가 다른 runOID로 정의되는 경우 예외처리
+    if (segments.end.length + segments.mid.length > 0) {
+      segments["lines"] = [];
+      for (let seg of segments.end) {
+        for (let id of seg.slice(1)) {
+          //단부의 equipment의 경우 runOID가 null임, 단부가 다른 runOID로 정의되는 경우 예외처리
           let LineName = runDict[partDict[id].runOID].lineName;
-          if (!subGroup["lines"].includes(LineName)) {
-            subGroup["lines"].push(LineName);
+          if (!segments["lines"].includes(LineName)) {
+            segments["lines"].push(LineName);
           }
         }
       }
-      for (let seg of subGroup.mid) {
+      for (let seg of segments.mid) {
         for (let id of seg) {
           let LineName = runDict[partDict[id].runOID].lineName;
-          if (!subGroup["lines"].includes(LineName)) {
-            subGroup["lines"].push(LineName);
+          if (!segments["lines"].includes(LineName)) {
+            segments["lines"].push(LineName);
           }
         }
       }
-      group.push(subGroup);
+      cluster.push(segments);
     }
     iter++;
   }
-  return { partDict, runDict, group };
+  return { partDict, runDict, cluster };
 }
 
 export function gen2DGroup(pidConnection) {
   let partDict = {};
   let opcDict = {};
+  let runDict = {};
   let conections = [];
   for (let i = 0; i < pidConnection.length; i++) {
     let p1 = pidConnection[i];
@@ -327,9 +295,15 @@ export function gen2DGroup(pidConnection) {
       } //OPC이름이 같은 경우
     }
   }
+  let runNumber = 0;
+  let dummyTag = "nan";
   for (let i = 0; i < pidConnection.length; i += 2) {
     let p1 = pidConnection[i];
     let p2 = pidConnection[i + 1];
+    if (p1.ItemTag !== dummyTag) {
+      runNumber++;
+    }
+    dummyTag = p2.ItemTag;
     conections.push({
       part1: {
         PartOID: opcDict[p1.ItemTag] ? opcDict[p1.ItemTag][0] : p1.ItemSPID,
@@ -339,6 +313,7 @@ export function gen2DGroup(pidConnection) {
             : p1.ItemTag, //OPC이름이 같은 경우
         PartType: p1.ItemName, //OPC인 경우
         RunName: String(p1.ItemTag).includes('"') ? p1.ItemTag : p1.LineName,
+        runNumber: runNumber,
       },
       part2: {
         PartOID: opcDict[p2.ItemTag] ? opcDict[p2.ItemTag][0] : p2.ItemSPID,
@@ -348,6 +323,7 @@ export function gen2DGroup(pidConnection) {
             : p2.ItemTag,
         PartType: p2.ItemName,
         RunName: String(p2.ItemTag).includes('"') ? p2.ItemTag : p2.LineName,
+        runNumber: runNumber,
       },
     });
   }
@@ -355,6 +331,9 @@ export function gen2DGroup(pidConnection) {
   for (let c of conections) {
     let p1 = c.part1.PartOID;
     let p2 = c.part2.PartOID;
+    if (p1 === p2) {
+      partDict[p1].count++;
+    }
     if (!partDict[p1]) {
       let t = c.part1.RunName.split('"').map((a) => a.split("-"));
       let lineName = `${t[0][0]}-${t[1][1]}-${t[1][2]}`;
@@ -362,8 +341,10 @@ export function gen2DGroup(pidConnection) {
         name: c.part1.PartName,
         type: c.part1.PartType,
         adjacent: [c.part2.PartOID],
-        runName: c.part1.RunName,
+        runName: c.part1.RunName + String(c.part1.runNumber),
         lineName,
+        index: c.part1.index,
+        count: 1,
       };
     } else {
       if (!partDict[p1].adjacent.includes(c.part2.PartOID)) {
@@ -377,8 +358,10 @@ export function gen2DGroup(pidConnection) {
         name: c.part2.PartName,
         type: c.part1.PartType,
         adjacent: [c.part1.PartOID],
-        runName: c.part2.RunName,
+        runName: c.part2.RunName + String(c.part2.runNumber),
         lineName,
+        index: c.part2.index,
+        count: 1,
       };
     } else {
       if (!partDict[p2].adjacent.includes(c.part1.PartOID)) {
@@ -443,7 +426,7 @@ export function gen2DGroup(pidConnection) {
       }
     }
   }
-  let group = [];
+  let cluster = [];
   let maxIter = endList.length;
   let iter = 0;
   while (endList.length > 0 && iter < maxIter) {
@@ -503,9 +486,9 @@ export function gen2DGroup(pidConnection) {
           }
         }
       }
-      group.push(subGroup);
+      cluster.push(subGroup);
     }
     iter++;
   }
-  return { partDict, group };
+  return { partDict, cluster };
 }
