@@ -282,7 +282,7 @@ export function gen2DGroup(pidConnection) {
   let partDict = {};
   let opcDict = {};
   let runDict = {};
-  let conections = [];
+  let connections = [];
   for (let i = 0; i < pidConnection.length; i++) {
     let p1 = pidConnection[i];
     if (p1.ItemName.includes("OPC")) {
@@ -304,7 +304,7 @@ export function gen2DGroup(pidConnection) {
       runNumber++;
     }
     dummyTag = p2.ItemTag;
-    conections.push({
+    connections.push({
       part1: {
         PartOID: opcDict[p1.ItemTag] ? opcDict[p1.ItemTag][0] : p1.ItemSPID,
         PartName:
@@ -330,7 +330,7 @@ export function gen2DGroup(pidConnection) {
     });
   }
 
-  for (let c of conections) {
+  for (let c of connections) {
     let p1 = c.part1.PartOID;
     let p2 = c.part2.PartOID;
     if (p1 === p2) {
@@ -492,5 +492,5 @@ export function gen2DGroup(pidConnection) {
     }
     iter++;
   }
-  return { partDict, cluster };
+  return { partDict, cluster, connections };
 }
