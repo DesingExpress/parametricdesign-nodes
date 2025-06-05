@@ -64,11 +64,34 @@ export function staadModel(pointData) {
     );
   }
 
-  let pipe = ["PIPE", "NaN", "T", "LAT", "LRB", "TRB", "REDC", "REDE"];
+  let pipe = [
+    "PIPE",
+    "NaN",
+    "E45",
+    "E90",
+    "T",
+    "LAT",
+    "LRB",
+    "TRB",
+    "REDC",
+    "REDE",
+    "SWGE",
+    "NIP",
+  ];
   let flange = ["FBLD", "FRSW", "FOWN", "FSW", "FTHD", "FWN"];
   let valve = ["BALL", "BFYLP", "GAT", "GLO", "PLU"];
-  let olet = ["FLGOL", "LOL", "Sockolet, flat", "SOL", "SWOL", "WOL"];
+  let olet = [
+    "FLGOL",
+    "LOL",
+    "Sockolet, flat",
+    "SOL",
+    "SWOL",
+    "WOL",
+    "Vesselet",
+    "TOL",
+  ];
   let lateral = ["LAT", "LOL", "LRB"];
+  let pad = ["RPAD"]; //분기 보강용 구멍난 파이프 패드
   let degree = 16;
   let c = [...Array(degree + 1)].map((_, i) => i);
   let da = (Math.PI * 2) / degree;
@@ -628,6 +651,7 @@ export function staadModel(pointData) {
   let pipeByLine = pipeComp.reduce((acc, cur) => {
     (acc[cur.meta.part] = acc[cur.meta.part] || []).push(cur);
     return acc;
+    
   }, {});
   for (let part in pipeByLine) {
     let pipeByName = pipeByLine[part].reduce((acc, cur) => {
